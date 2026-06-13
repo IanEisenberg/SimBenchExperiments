@@ -17,8 +17,9 @@ Two parts, two weeks (clock running):
 
 ## 2. Constraints
 
-- **Time:** 5–10 hours total, part-time alongside a full job.
-- **Budget:** ~$100 API spend; cheap models (Gemini Flash, Together+Qwen) — consistent with the model-as-commodity thesis.
+- **Time:** 5–10 hours total, part-time alongside a full job. **This is the binding constraint** — budget is now generous, but hours are not, so scope discipline still governs.
+- **Provider:** **OpenRouter** (single key, gitignored in `.env` as `OPENROUTER_API_KEY`). One OpenAI-compatible endpoint fronts every model family — Gemini Flash, Qwen, DeepSeek, Claude Haiku/Sonnet, GPT-4.1-mini, open-weights. This *is* the "swappable-by-design, model-is-a-commodity" thesis made literal: a one-line `model=` change swaps vendors, which turns the cross-model comparison from an expense into a near-free ablation.
+- **Budget:** raised (no longer ~$100-capped). Cheap models remain the workhorse on thesis grounds, but the higher ceiling now affords (a) a **cross-model ablation** across 4–6 OpenRouter models to empirically demonstrate model-tier invariance, (b) a **larger evaluation subsample** (or the full splits) for tighter confidence intervals, and (c) optional persona Monte Carlo (Approach B) runs as a real ablation rather than a roadmap line. Spend is gated by hours and by marginal evidentiary value, not by a dollar cap.
 - **Posture:** *Rigor as the product*, but the score must meaningfully improve; everything defensible with good practices; limitations framed as a clear improvement roadmap, not confessions.
 
 ## 3. SimBench ground truth (verified)
@@ -38,7 +39,7 @@ Two parts, two weeks (clock running):
 1. **This is the case-study stage the interview-prep thesis anticipated.** Part II's scenario (revealed transactions vs. stated surveys) is the attitudes-vs-behavior evidence map restated as a design exercise. The prep-doc architecture (tiered confidence, calibration layer, reliability ceiling, honest no-flywheel multi-tenancy) can be deployed nearly verbatim.
 2. **The self-designed counterfactual metric is an open invitation** to do construct-validity work — the signature differentiator.
 3. **The hollow-demo trap is the central risk.** The winning shape: one or two well-chosen ideas with airtight ablations and an honest, roadmap-shaped limitations section — not a kitchen sink.
-4. **A cheap model beating frontier zero-shot via method** would itself dramatize the model-as-commodity thesis.
+4. **A cheap model beating frontier zero-shot via method** would itself dramatize the model-as-commodity thesis — and with OpenRouter the cross-model ablation that proves "tier barely moves the result" costs a single config sweep. Lead the empirical section with: *the method, not the model, carries the gain.*
 
 ## 5. The direction space (divergent map)
 
@@ -83,7 +84,8 @@ Highest effort, least distinctive, worst hour-fit. **Listed to argue against**; 
 - **Reliability-ceiling normalization:** ground-truth distributions are finite-sample estimates (group_size is published). Bootstrap the sampling noise to get a per-question ceiling on achievable S; report normalized scores. The Park/Kinzinger test-retest logic applied to this benchmark — no other candidate will do this.
 - **Error decomposition:** accuracy (TVD) / rank-order / dispersion per prediction.
 - **Holdout discipline:** dev/eval split by source dataset family; all tuning on dev only; documented leakage protocol.
-- **Uncertainty:** bootstrap CIs on all scores; stratified evaluation subsample (~300–500 Pop + ~300–500 Grouped cases incl. all required-question variants).
+- **Uncertainty:** bootstrap CIs on all scores; stratified evaluation subsample (~300–500 Pop + ~300–500 Grouped cases incl. all required-question variants). With the lifted budget, this can grow toward the full splits if CI width on the headline comparison is too wide to call.
+- **Cross-model invariance ablation (now cheap via OpenRouter):** run the final pipeline across 4–6 model families (e.g., Gemini Flash, Qwen-2.5, DeepSeek, Claude Haiku, GPT-4.1-mini) behind the same gateway. Hypothesis from the paper: the *recalibration* gain is roughly model-invariant while raw zero-shot tracks model tier. Confirming this both validates the method's portability and dramatizes the commodity-model thesis — a high-value, low-effort ablation the single-provider setup makes trivial.
 
 ## 6. Candidate spines
 
@@ -110,8 +112,8 @@ Nearest-neighbor survey items + their distributions as few-shot anchors, leave-f
 
 ## 8. Infrastructure sketch (brief, per the brief's ask)
 
-- **Compute:** laptop + hosted APIs (Gemini Flash / Together Qwen). No GPUs needed at this scale; state the scale-up path (vLLM on reserved instances for open-weights bulk inference) and the on-demand-vs-reserved tradeoff.
-- **Models:** hosted APIs behind a thin provider-agnostic client (swappable-by-design; one-line model swap is itself an ablation).
+- **Compute:** laptop + hosted APIs via OpenRouter. No GPUs needed at this scale; state the scale-up path (vLLM on reserved instances for open-weights bulk inference once per-tenant volume justifies it) and the on-demand-vs-reserved tradeoff.
+- **Models:** **OpenRouter as the single provider-agnostic gateway** (OpenAI-compatible API, key in `.env`). One client, one request schema, every vendor reachable by changing the `model` string — so the architecture is swappable-by-design by construction, and the cross-model ablation is a config sweep rather than N integrations. This is also the honest Part II answer to vendor lock-in: the gateway is the abstraction boundary that keeps the model a commodity. Note the tradeoff for the writeup: OpenRouter adds a small latency/markup and a third-party dependency; at production scale a tenant with steady volume would pin specific providers or self-host open-weights behind the same interface.
 - **Data:** SimBench CSVs → parquet locally; deterministic seeded subsampling; cached raw model outputs (JSONL) so recalibration/ablation reruns are free.
 - **Experiment tracking:** config-hashed run directories + a results table (or lightweight W&B); every figure regenerable from cached outputs.
 
@@ -129,7 +131,7 @@ Total: 7–12h — the 5h floor is achievable by trimming phase 2 to recalibrati
 
 ## 10. Open questions (for next session)
 
-1. Subsample size vs. full-split evaluation — how much do we trade CI width for spend/wall-clock?
+1. Subsample size vs. full-split evaluation — with budget lifted, the question is now mostly wall-clock and CI width, not spend. Start with a stratified subsample, expand toward full splits only if the headline comparison's bootstrap CI doesn't separate.
 2. Exact recalibration functional form (global temperature vs. entropy-conditioned vs. Dirichlet) — decide after seeing dev-split error decomposition.
-3. Which model is the workhorse (Gemini Flash vs. Qwen-72B-class on Together) — pick by a 50-case pilot, not by debate.
+3. Which model is the workhorse — pick by a ~50-case pilot across a few OpenRouter models, not by debate. The others become the cross-model ablation rather than being discarded.
 4. Does the presentation lead with Part I results or with the evidence-map framing? (Sequencing question for later.)
