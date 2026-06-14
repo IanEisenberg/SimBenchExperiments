@@ -68,3 +68,12 @@ OPENROUTER_MODELS = {
 
 # Default workhorse for development (cheap, fast, reliable).
 DEFAULT_MODEL = OPENROUTER_MODELS["gemini-flash-lite"]
+
+# The three questions the assignment requires us to report on, matched by a
+# distinctive case-insensitive substring of the question text. Verified present
+# in the downloaded CSVs (trust -> LatinoBarometro; the other two -> ESS).
+REQUIRED_QUESTIONS = {
+    "trust_president": "trust in the president",
+    "gay_rights": "free to live their own life",
+    "internet_use": "use the internet",
+}

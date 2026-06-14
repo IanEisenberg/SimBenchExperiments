@@ -63,25 +63,81 @@ def uniform_like(p: np.ndarray) -> np.ndarray:
     return np.full(k, 1.0 / k) if k else p
 
 
+def tvd_to_uniform(truth: Mapping[str, float]) -> float:
+    """TVD between a ground-truth distribution and uniform over its options.
+
+    Depends only on the truth, so the per-dataset mean of this quantity is the
+    model-independent normalizer in the benchmark's Eq. 2 (see `simbench_score`).
+    """
+    p = _renormalize(np.array(list(truth.values()), dtype=float))
+    return total_variation_distance(p, uniform_like(p))
+
+
 def simbench_score(
     pred: Mapping[str, float],
     truth: Mapping[str, float],
     options: Sequence[str] | None = None,
+    normalizer: float | None = None,
 ) -> float:
-    """Per-instance SimBench score S in [.., 100]. See module docstring.
+    """SimBench score S (Hu et al., arXiv 2510.17516).
 
-    The normalizer TVD(P, U) is the TVD of the *ground truth* to uniform; when
-    the ground truth is itself uniform this is 0 and S is undefined — we return
-    0.0 in that degenerate case (the prediction can do no better than uniform by
-    construction, so it earns the baseline score).
+    Two normalization modes:
+
+    * **Eq. 2 (paper default, use this for reported numbers):** pass
+      `normalizer` = the mean TVD(P, U) across the question's *dataset*
+      (a single scalar). This is numerically stable and makes the uniform
+      predictor average to 0 over a dataset. Build normalizers with
+      :func:`scrye.evaluate.build_normalizers`.
+    * **Eq. 1 (per-instance, the conceptual form):** leave `normalizer=None`
+      and the denominator is this instance's own TVD(P, U). Unstable on
+      near-uniform truths (denominator → 0); fine for unit math and singletons,
+      not for aggregate reporting.
+
+    Returns 100 for a perfect match; ~0 for uniform-level prediction; negative
+    when worse than uniform.
     """
     p, q = _aligned_vectors(pred, truth, options)
     p = _renormalize(p)
     q = _renormalize(q)
-    denom = total_variation_distance(p, uniform_like(p))
-    if denom <= 0:
+    denom = normalizer if normalizer is not None else total_variation_distance(p, uniform_like(p))
+    if denom is None or denom <= 0:
         return 0.0
     return 100.0 * (1.0 - total_variation_distance(p, q) / denom)
+
+
+def response_entropy(dist: Mapping[str, float], normalized: bool = True) -> float:
+    """Shannon entropy of a response distribution.
+
+    With `normalized=True`, divides by log(K) so the value is in [0, 1] and
+    comparable across questions with different option counts (0 = consensus /
+    one-hot, 1 = uniform). This is the axis the SimBench paper found predicts
+    where instruction-tuned models fail (mode-seeking on high-entropy items).
+    """
+    p = _renormalize(np.array(list(dist.values()), dtype=float))
+    p = p[p > 0]
+    if p.size <= 1:
+        return 0.0
+    h = float(-(p * np.log(p)).sum())
+    return h / np.log(len(dist)) if normalized else h
+
+
+def delta_alignment(
+    pred_delta: np.ndarray,
+    truth_delta: np.ndarray,
+) -> float:
+    """Cosine similarity between a predicted shift and the true shift.
+
+    Used by the counterfactual sensitivity metric: each vector is the change in
+    a distribution when conditioning on a segment (segment minus population).
+    +1 = shift in exactly the right direction, -1 = exactly wrong, 0 =
+    orthogonal. Returns NaN when either shift is ~zero (no signal to align).
+    """
+    a = np.asarray(pred_delta, dtype=float)
+    b = np.asarray(truth_delta, dtype=float)
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    if na < 1e-12 or nb < 1e-12:
+        return float("nan")
+    return float(np.dot(a, b) / (na * nb))
 
 
 def aggregate_score(scores: Sequence[float]) -> float:
