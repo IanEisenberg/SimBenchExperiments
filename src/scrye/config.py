@@ -21,11 +21,14 @@ load_dotenv(REPO_ROOT / ".env")
 
 # Directory layout (all gitignored except where noted).
 DATA_DIR = REPO_ROOT / "data"
-RAW_DIR = DATA_DIR / "raw"          # downloaded SimBench CSVs
-CACHE_DIR = DATA_DIR / "cache"      # on-disk LLM response cache
-OUTPUTS_DIR = REPO_ROOT / "outputs"  # experiment results, figures
+RAW_DIR = DATA_DIR / "raw"          # downloaded SimBench CSVs (gitignored)
+CACHE_DIR = DATA_DIR / "cache"      # on-disk LLM response cache (gitignored)
+OUTPUTS_DIR = REPO_ROOT / "outputs"  # generated run artifacts/scratch (gitignored)
+# Presentation-final, deliverable-grade figures live here and ARE tracked, so
+# git versions only curated visuals while regenerable churn stays in outputs/.
+FIGURES_DIR = REPO_ROOT / "docs" / "figures"
 
-for _d in (RAW_DIR, CACHE_DIR, OUTPUTS_DIR):
+for _d in (RAW_DIR, CACHE_DIR, OUTPUTS_DIR, FIGURES_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 

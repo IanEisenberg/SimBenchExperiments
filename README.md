@@ -25,7 +25,14 @@ through OpenRouter (one OpenAI-compatible endpoint, any vendor by model id).
 uv run python scripts/download_data.py   # download SimBench + print summary
 uv run python scripts/smoke_llm.py       # one live call, verify cache works
 uv run pytest                            # unit tests (scoring + parsing)
+uv run jupyter lab                       # notebooks (select the .venv kernel)
 ```
+
+## Where things live
+
+- **Experiments & exploration** → `notebooks/` (tracked). Notebooks stay thin: they `import scrye` and call the library; reusable logic graduates into `src/scrye/`.
+- **Generated artifacts / scratch figures** → `outputs/` (gitignored; everything here regenerates from the LLM cache).
+- **Presentation-final figures** → `docs/figures/` (tracked, via `scrye.config.FIGURES_DIR`) — git versions only deliverable-grade visuals.
 
 ## Package layout (`src/scrye/`)
 
