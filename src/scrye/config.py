@@ -79,13 +79,13 @@ REQUIRED_QUESTIONS = {
 }
 
 # Per-model OpenRouter prices, USD per 1M tokens (prompt, completion). Used ONLY
-# as a fallback when a response omits native usage.cost. Seed the models the
-# search may swap in; an unknown model estimates to $0 (native cost still wins).
+# as a fallback when a response omits native usage.cost. Keyed on the exact ids
+# from OPENROUTER_MODELS; an unknown model estimates to $0 (native cost still wins).
 MODEL_PRICES: dict[str, tuple[float, float]] = {
-    "google/gemini-2.0-flash-001": (0.10, 0.40),
-    "google/gemini-2.0-flash-lite-001": (0.075, 0.30),
-    "qwen/qwen-2.5-72b-instruct": (0.35, 0.40),
-    "deepseek/deepseek-chat": (0.38, 0.89),
+    "google/gemini-2.5-flash-lite": (0.10, 0.40),
+    "qwen/qwen-2.5-7b-instruct": (0.04, 0.10),
+    "qwen/qwen-2.5-72b-instruct": (0.36, 0.40),
+    "deepseek/deepseek-chat-v3-0324": (0.20, 0.77),
 }
 
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -187,6 +188,14 @@ class LLMClient:
             "cost": native_cost,  # may be None -> estimated below
             "params": {k: v for k, v in payload.items() if k != "messages"},
         }
+
+        if record.get("cost") is None and price_for(self.model) == (0.0, 0.0):
+            warnings.warn(
+                f"Spend for model '{self.model}' cannot be measured: no native cost from "
+                "OpenRouter and no fallback entry in MODEL_PRICES. Cost recorded as $0; "
+                "the cost cap may under-count actual spend.",
+                stacklevel=2,
+            )
 
         with self._lock:
             self.usage.calls += 1
