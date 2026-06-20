@@ -191,3 +191,24 @@ def test_resume_preserves_k_best_and_cost(tmp_path):
     assert led.best_val() == 42.0, f"expected best_val==42.0, got {led.best_val()}"
     # Prior cost (5.0) must be preserved and the new step adds to it (not reset to 0).
     assert led.total_cost() >= 5.0, f"expected total_cost>=5.0, got {led.total_cost()}"
+
+
+def test_node_carries_params_and_spec_config(tmp_path):
+    """A logged node carries the proposal's params and a non-empty spec_config with correct fields."""
+    led = Ledger(tmp_path / "r.jsonl")
+    proposals = iter([Proposal("recalib.global_temp", {"T": 1.5}, "test_params")])
+
+    def score_fn(spec, recs):
+        return (20.0 if recs == ["dev"] else 30.0), {}
+
+    run_search(
+        _contract(autonomy_budget=1), led, dev=["dev"], val=["val"],
+        score_fn=score_fn, propose_fn=lambda s: next(proposals, None), now_fn=_now,
+    )
+    assert len(led.nodes) == 1
+    node = led.nodes[0]
+    assert node.params == {"T": 1.5}
+    assert node.spec_config != {}
+    assert "model" in node.spec_config
+    assert "predictor" in node.spec_config
+    assert "calibrators" in node.spec_config

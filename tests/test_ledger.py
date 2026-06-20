@@ -65,3 +65,26 @@ def test_path_to_root_and_children(tmp_path):
     n2 = _node(led, "h2", parent=n1.node_id); led.append(n2)
     assert [n.node_id for n in led.path_to_root(n2.node_id)] == [n0.node_id, n1.node_id, n2.node_id]
     assert [n.node_id for n in led.children(n0.node_id)] == [n1.node_id]
+
+
+def test_params_spec_config_roundtrip(tmp_path):
+    """nodes with non-default params/spec_config survive JSONL save->load."""
+    p = tmp_path / "run.jsonl"
+    led = Ledger(p)
+    params = {"T": 1.5}
+    spec_config = {"model": "gemini-flash-lite", "predictor": "zero_shot", "calibrators": [{"name": "temp", "kwargs": {"T": 1.5}}]}
+    n = ExperimentNode(
+        node_id=led.next_node_id(), config_hash="hashX", parent_id=None,
+        lever_id="recalib.global_temp", rationale="test",
+        dev_score=10.0, dev_breakdown={}, val_score=12.0, eta=0.5,
+        accepted=True, global_k_at_query=1, timestamp="2026-06-20T00:00:00",
+        cost_usd=1.0, cum_cost_usd=1.0,
+        params=params, spec_config=spec_config,
+    )
+    led.append(n)
+    reloaded = Ledger.load(p)
+    assert len(reloaded.nodes) == 1
+    rn = reloaded.nodes[0]
+    assert rn.params == params
+    assert rn.spec_config == spec_config
+    assert rn.spec_config["model"] == "gemini-flash-lite"

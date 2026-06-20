@@ -14,7 +14,7 @@ a config_hash already queried returns its stored score and costs no new K.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
@@ -34,6 +34,8 @@ class ExperimentNode:
     timestamp: str
     cost_usd: float = 0.0       # NEW OpenRouter spend for this node (cache hits = 0.0)
     cum_cost_usd: float = 0.0   # running tree total at this node
+    params: dict = field(default_factory=dict)        # the lever's params (replayable proposals)
+    spec_config: dict = field(default_factory=dict)   # resolved pipeline config -> node's exact pipeline is rebuildable
 
 
 class Ledger:

@@ -184,6 +184,8 @@ def run_search(
             val_score=val_score, eta=eta_used, accepted=accepted,
             global_k_at_query=k_at, timestamp=now_fn(),
             cost_usd=step_cost, cum_cost_usd=state.cum_cost,
+            params=dict(proposal.params),
+            spec_config=new_spec.resolved(),
         )
         ledger.append(node)
         # Advance the DAG parent only when the step is accepted (spec advances).
@@ -213,5 +215,3 @@ def run_search(
             return SearchOutcome("surprise_gate", state.spec, steps)
 
     return SearchOutcome("autonomy_budget_reached", state.spec, steps)
-
-
