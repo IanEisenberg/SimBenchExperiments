@@ -13,8 +13,15 @@ Requires Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --extra dev                 # create venv, install deps
+uv run nbstripout --install         # one-time: strip notebook outputs on commit
 cp .env.example .env                # then add your OPENROUTER_API_KEY
 ```
+
+`nbstripout --install` configures a local git filter (recorded in `.gitattributes`)
+so executed notebook outputs and execution counts are stripped before commit — git
+tracks only source-cell changes, while your working copy keeps its rendered outputs.
+The filter lives in `.git/config`, which isn't committed, so each fresh clone runs
+this once.
 
 The `.env` file is gitignored and holds the OpenRouter key. All LLM access goes
 through OpenRouter (one OpenAI-compatible endpoint, any vendor by model id).

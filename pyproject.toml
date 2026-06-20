@@ -18,6 +18,7 @@ dev = [
     "jupyterlab>=4.0",
     "ipykernel>=6.29",
     "matplotlib>=3.8",
+    "nbstripout>=0.9.1",
 ]
 
 [build-system]
