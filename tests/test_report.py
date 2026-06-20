@@ -48,3 +48,5 @@ def test_final_report_scores_uniform_to_zero(tmp_path):
     assert rep["global_k"] == 0
     assert "k_band_low" in rep and "k_band_high" in rep
     assert rep["total_cost_usd"] == 0.0  # empty ledger -> no spend
+    assert rep["test_eval_cost_usd"] == 0.0
+    assert rep["grand_total_cost_usd"] == 0.0

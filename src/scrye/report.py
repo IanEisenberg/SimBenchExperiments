@@ -13,12 +13,10 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
-import numpy as np
 import pandas as pd
 
 from .evaluate import evaluate, summarize
 from .ledger import Ledger
-from .scoring import response_entropy
 from .spec import PipelineSpec, build_from_spec
 
 
@@ -67,7 +65,9 @@ def final_report(spec: PipelineSpec, test: Sequence, normalizers, ledger: Ledger
                  *, client=None) -> dict:
     """Score the frozen spec ONCE on test; report raw mean, CI, and K-band."""
     pipe = build_from_spec(spec, client=client)
+    _cost_before = _pipe_cost(pipe)
     df = evaluate(pipe, test, normalizers=normalizers, progress=False)
+    test_eval_cost = _pipe_cost(pipe) - _cost_before
     summ = summarize(df)
     k = ledger.global_k()
     lo, hi = k_corrected_band(summ["mean_score"], n=len(df), k=k)
@@ -81,5 +81,7 @@ def final_report(spec: PipelineSpec, test: Sequence, normalizers, ledger: Ledger
         "global_k": k,
         "k_band_low": lo,
         "k_band_high": hi,
-        "total_cost_usd": ledger.total_cost(),
+        "total_cost_usd": ledger.total_cost(),  # search-phase spend only
+        "test_eval_cost_usd": test_eval_cost,
+        "grand_total_cost_usd": ledger.total_cost() + test_eval_cost,
     }
