@@ -13,7 +13,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 
+import numpy as np
+
 from .data import SimBenchRecord
+from .scoring import response_entropy, simbench_score
 
 
 class Calibrator(ABC):
@@ -53,9 +56,6 @@ class IdentityCalibrator(Calibrator):
 
 
 # --- recalibration calibrators (append to src/scrye/calibrate.py) ---------
-import numpy as np
-
-from .scoring import response_entropy, simbench_score
 
 
 def _as_vec(pred: Mapping[str, float]) -> tuple[list[str], np.ndarray]:
@@ -77,7 +77,7 @@ def _temper_vec(v: np.ndarray, T: float) -> np.ndarray:
 class TempScaling(Calibrator):
     """Temperature scaling: q_i^(1/T) renormalized. T>1 flattens (treats the
     mode-seeking over-sharpness SimBench diagnoses); T<1 sharpens; T=1 is a no-op.
-    `fit` grid-searches T to minimize mean SimBench TVD on held-out data."""
+    `fit` grid-searches T to maximize mean SimBench score on held-out data."""
 
     name = "temp"
 

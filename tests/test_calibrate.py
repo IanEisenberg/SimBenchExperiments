@@ -59,7 +59,7 @@ def test_chain_applies_in_order():
     rec = _rec(["A", "B"], {"A": 0.5, "B": 0.5})
     chain = ChainCalibrator([TempScaling(T=2.0), DirichletCalibrator(alpha=0.0)])
     out = chain.transform(rec, {"A": 0.9, "B": 0.1})
-    assert sum(out.values()) - 1.0 < 1e-9 and out["A"] < 0.9  # flattened
+    assert abs(sum(out.values()) - 1.0) < 1e-9 and out["A"] < 0.9  # flattened
 
 
 def test_temp_fit_recovers_flattening_temperature():
