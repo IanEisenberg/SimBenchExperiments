@@ -27,6 +27,6 @@ this folder enforces.
 
 | Stage | Name | Status | Headline result |
 |---|---|---|---|
-| [01](stage-01-baseline.md) | Strategy baseline | PLANNED | — |
+| [01](stage-01-baseline.md) | Strategy baseline | DONE | Better conditioning beats SimBench first-person baseline on grouped (+8 pts); anti_flattening most robust |
 
 _Statuses: PLANNED → RUNNING → DONE. Update this row when a stage closes._
