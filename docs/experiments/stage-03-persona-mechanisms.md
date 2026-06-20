@@ -13,9 +13,19 @@ Stages 01–02 found the best *single-call group framings* (anti_flattening,
 contextualized). This stage tests two mechanisms that change *how* the
 distribution is produced, on the carry-forward model `gemini-3.1-flash-lite`:
 
-- **Monte-Carlo individuals** (`monte_carlo`, N=20): draw 20 temperature-sampled
-  individuals from the segment (`IndividualStrategy`), get each one's distribution,
-  and average. The group spread emerges from cross-draw variation.
+- **Monte-Carlo individuals** (`monte_carlo`, N=20): draw 20 synthetic
+  within-group individuals, get each one's distribution, and average. The group
+  spread emerges from cross-draw variation.
+  - **Pre-run finding (amendment):** the original design relied on
+    temperature/seed sampling for variation. A live diagnostic showed
+    gemini-3.1-flash-lite is **near-deterministic across seeds** — all 20 draws
+    came back byte-identical (and confidently wrong), collapsing MC to one
+    over-confident call (~uniform score). **Fix:** inject variation ourselves —
+    each draw samples a synthetic person (a worldview/ideology lean + the
+    demographic attributes the segment leaves open) from a **seeded RNG**
+    (`scrye.persona.sample_persona`), at `temperature=0` for reproducibility.
+    Diagnostic on one item: aggregate moved from `{A:.85,B:.10}` (broken) to
+    `{A:.57,B:.38}` vs truth `{A:.48,B:.51}`.
   - **H1:** external aggregation of sampled individuals beats the best single-call
     group framing on grouped — i.e. `monte_carlo` > max(anti_flattening,
     contextualized) by more than the noise floor.
@@ -28,8 +38,8 @@ distribution is produced, on the carry-forward model `gemini-3.1-flash-lite`:
 
 ## Configs to run
 
-All on `gemini-3.1-flash-lite`, `temperature=0` for single-call systems;
-`monte_carlo` uses `temperature=1.0`, seeds `0..19`.
+All on `gemini-3.1-flash-lite`, `temperature=0`. `monte_carlo` draws N=20
+seeded synthetic personas (variation from the sampler, not the model RNG).
 
 | system | predictor | role |
 |---|---|---|

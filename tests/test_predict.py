@@ -78,3 +78,26 @@ def test_monte_carlo_falls_back_to_uniform_when_all_fail():
     p = MonteCarloPredictor(c, n_individuals=2)
     out = p.predict(_rec())
     assert abs(out["A"] - 0.5) < 1e-9 and abs(out["B"] - 0.5) < 1e-9
+
+
+class _CapClient:
+    """Captures the user prompt of each call (to check injected variation)."""
+
+    model = "vendor/fake"
+
+    def __init__(self, text):
+        self.text = text
+        self.users: list[str] = []
+
+    def complete(self, messages, **overrides):
+        self.users.append(messages[-1]["content"])
+        return LLMResponse(text=self.text, model=self.model, cached=False)
+
+
+def test_monte_carlo_injects_distinct_personas_across_draws():
+    # the whole point of the redesign: draws must differ even though the model
+    # output (and API seed/temperature) is fixed — variation comes from the
+    # seeded persona sampler, not the model.
+    c = _CapClient('{"A": 1, "B": 0}')
+    MonteCarloPredictor(c, n_individuals=8).predict(_rec())
+    assert len(set(c.users)) > 1

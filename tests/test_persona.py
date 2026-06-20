@@ -172,3 +172,21 @@ def test_individual_strategy_frames_one_person_and_is_not_a_group_system():
     )
     assert "ONE specific person" in user
     assert "from Finland" in user
+
+
+def test_sample_persona_varies_by_seed_and_is_reproducible():
+    from scrye.persona import sample_persona
+
+    rec = _rec({"cntry": "Finland"}, "You are from Finland.")
+    assert sample_persona(rec, 3) == sample_persona(rec, 3)  # seeded -> stable
+    assert len({sample_persona(rec, s) for s in range(8)}) > 1  # draws differ
+
+
+def test_sample_persona_skips_attributes_the_segment_already_pins():
+    from scrye.persona import sample_persona
+
+    age_clauses = ("are a young adult", "are middle-aged", "are older or retired")
+    rec = _rec({"cntry": "Finland", "age": "30-49"}, "You are from Finland.")
+    for s in range(12):
+        descriptor = sample_persona(rec, s)
+        assert not any(a in descriptor for a in age_clauses)

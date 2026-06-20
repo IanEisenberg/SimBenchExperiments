@@ -25,6 +25,7 @@ full per-dataset country catalog from the SimBench grouped split.
 
 from __future__ import annotations
 
+import random
 import re
 from dataclasses import dataclass
 
@@ -424,25 +425,98 @@ class IndividualStrategy(PromptStrategy):
     name = "individual"
     SYSTEM = (
         "You simulate one specific, randomly sampled member of a demographic "
-        "group for survey research. Each time, imagine a different concrete "
-        "person — give them a particular, realistic background, life situation, "
-        "and set of opinions a real individual in that group might hold — then "
-        "answer as that one person, not as the group average."
+        "group for survey research. Inhabit the particular person described — "
+        "their stated leanings and background — and answer as that one person, "
+        "not as the group average."
     )
 
     def build_messages(self, record: SimBenchRecord) -> list[dict]:
-        who, year_clause = _population_phrase(record)
-        user = (
-            f"Imagine ONE specific person randomly drawn from {who}{year_clause}. "
-            "Picture their particular circumstances and views as a real "
-            "individual.\n\n"
-            f"{record.input_template.strip()}\n\n"
-            "Answer as that single person: give the probability that THIS "
-            "person chooses each option (it is fine to be fairly decided).\n"
-            f"{_json_instruction(record.options)}"
-        )
-        return [{"role": "system", "content": self.SYSTEM},
-                {"role": "user", "content": user}]
+        # Base (no injected sub-persona); MonteCarloPredictor uses the sampled
+        # variant via `individual_messages` instead.
+        return individual_messages(record, "is a typical member of this group")
+
+
+# --------------------------------------------------------------------------- #
+# Synthetic within-group individuals (for Monte-Carlo simulation)
+# --------------------------------------------------------------------------- #
+#
+# The model is near-deterministic across sampling seeds, so temperature alone
+# produces identical draws — useless for Monte-Carlo. Instead we inject the
+# variation ourselves: each draw samples a synthetic individual (a worldview
+# lean plus unspecified demographic attributes) from these pools with a seeded
+# RNG, so draws genuinely differ yet stay reproducible.
+
+IDEOLOGY_AXES: tuple[str, ...] = (
+    "is strongly economically left-wing",
+    "is strongly economically right-wing",
+    "is a political moderate",
+    "leans libertarian",
+    "is socially conservative and traditionalist",
+    "is socially progressive",
+    "deeply distrusts government and institutions",
+    "broadly trusts government and institutions",
+    "favors free markets and low taxes",
+    "favors public services and redistribution",
+    "is politically disengaged and undecided",
+    "holds populist, anti-establishment views",
+)
+
+#: concept -> pool of clauses that read after "they ...".
+DEMOGRAPHIC_AXES: dict[str, tuple[str, ...]] = {
+    "age": ("are a young adult", "are middle-aged", "are older or retired"),
+    "education": ("have little formal schooling", "finished secondary school",
+                  "have a university degree"),
+    "locality": ("live in a major city", "live in a small town",
+                 "live in a rural area"),
+    "income": ("are on a low income", "are on a comfortable middle income",
+               "are on a high income"),
+}
+
+#: a sampled axis is suppressed when the segment already pins that concept
+#: (matched against :data:`VARIABLE_DICTIONARY` labels), so we never contradict
+#: the group definition.
+_PINNED_ALIASES: dict[str, set[str]] = {
+    "age": {"age"},
+    "education": {"education"},
+    "locality": {"locality", "city size", "region"},
+    "income": {"income", "income strain", "social standing"},
+}
+
+
+def sample_persona(record: SimBenchRecord, seed: int) -> str:
+    """Sample one synthetic within-group individual as a descriptor clause.
+
+    Draws a worldview lean plus the demographic attributes the segment leaves
+    unspecified, from a seeded RNG (so the same seed reproduces the same person).
+    Returns a clause that reads after "... who", e.g.
+    "is socially progressive; they are middle-aged, have a university degree".
+    """
+    rng = random.Random(seed)
+    pinned = {
+        (VARIABLE_DICTIONARY.get(k) or _fallback_spec(k)).label
+        for k in record.segment
+    }
+    ideology = rng.choice(IDEOLOGY_AXES)
+    demos = [
+        rng.choice(pool)
+        for concept, pool in DEMOGRAPHIC_AXES.items()
+        if not (pinned & _PINNED_ALIASES[concept])
+    ]
+    return f"{ideology}; they {', '.join(demos)}" if demos else ideology
+
+
+def individual_messages(record: SimBenchRecord, persona: str) -> list[dict]:
+    """Chat messages asking the model to answer as one described individual."""
+    who, year_clause = _population_phrase(record)
+    user = (
+        f"Imagine ONE specific person from {who}{year_clause} who {persona}.\n\n"
+        f"{record.input_template.strip()}\n\n"
+        "Answer as that single person: give the probability that THIS person "
+        "chooses each option (it is fine to be fairly decided).\n"
+        f"{_json_instruction(record.options)}"
+    )
+    return [{"role": "system", "content": IndividualStrategy.SYSTEM},
+            {"role": "user", "content": user}]
 
 
 # --------------------------------------------------------------------------- #

@@ -122,15 +122,18 @@ class MonteCarloPredictor(Predictor):
     """Simulate a population by sampling individuals and averaging their answers.
 
     Instead of one call describing the whole group, draw ``n_individuals`` from
-    the segment — each a distinct temperature-sampled persona (via
-    :class:`~scrye.persona.IndividualStrategy`) — and average their predicted
+    the segment — each a *synthetic within-group person* (a worldview lean plus
+    the demographic attributes the segment leaves open, via
+    :func:`~scrye.persona.sample_persona`) — and average their predicted
     distributions. The group's spread emerges from cross-draw variation rather
     than from a single call self-reporting its diversity. This tests whether
     *external* aggregation of sampled individuals beats *internal* group framing.
 
-    Draws use fixed, distinct seeds (``base_seed + i``) and a non-zero
-    ``temperature`` so the aggregate is reproducible from cache yet varied across
-    individuals. Each individual's distribution is normalized before averaging so
+    The variation is injected by a **seeded RNG**, not the model's sampler: the
+    model is near-deterministic across API seeds/temperature, so identical
+    prompts give identical draws. Each draw's persona descriptor differs, so the
+    aggregate is varied yet reproducible (``temperature=0`` + cache).
+    Each individual's distribution is normalized before averaging so
     every draw contributes equally. Unparseable draws are skipped (counted in
     ``n_parse_failures``); if every draw fails, falls back to uniform.
     """
@@ -139,26 +142,29 @@ class MonteCarloPredictor(Predictor):
         self,
         client: LLMClient,
         n_individuals: int = 20,
-        temperature: float = 1.0,
+        temperature: float = 0.0,
         base_seed: int = 0,
         name: str = "monte_carlo",
-        strategy: PromptStrategy | None = None,
+        sampler=None,
     ) -> None:
-        from .persona import IndividualStrategy
+        from .persona import sample_persona
 
         self.client = client
         self.n_individuals = n_individuals
         self.temperature = temperature
         self.base_seed = base_seed
         self.name = name
-        self.strategy = strategy or IndividualStrategy()
+        self.sampler = sampler or sample_persona
         self.n_parse_failures = 0
 
     def predict(self, record: SimBenchRecord) -> dict[str, float]:
-        messages = self.strategy.build_messages(record)
+        from .persona import individual_messages
+
         agg = {opt: 0.0 for opt in record.options}
         valid = 0
         for i in range(self.n_individuals):
+            persona = self.sampler(record, self.base_seed * 10_000 + i)
+            messages = individual_messages(record, persona)
             text = self.client.complete(
                 messages, temperature=self.temperature, seed=self.base_seed + i
             ).text
