@@ -377,6 +377,74 @@ class ContextualizedStrategy(PromptStrategy):
                 {"role": "user", "content": user}]
 
 
+class DiversityElicitationStrategy(PromptStrategy):
+    """Single-call framing that makes the model *reason about the range of views*
+    before committing to a distribution.
+
+    A cheap cousin of Monte-Carlo simulation: rather than externally aggregating
+    sampled individuals, it elicits the within-group spread inside one call by
+    making the model enumerate which subgroups lean which way first.
+    """
+
+    name = "diversity_elicitation"
+    SYSTEM = (
+        "You are an expert survey methodologist. Before estimating a group's "
+        "answer distribution, you explicitly reason about the full range of "
+        "views inside the group — which subgroups hold which positions and how "
+        "common each is — and never collapse the group to one typical answer."
+    )
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        user = (
+            f"Consider a large, representative sample of {who}{year_clause}.\n\n"
+            f"{record.input_template.strip()}\n\n"
+            "First, think step by step about the RANGE of views within this "
+            "group: which subgroups lean toward which options, and roughly how "
+            "common each view is. Then give the group's overall answer "
+            "distribution.\n"
+            f"{_json_instruction(record.options)} "
+            "Write your reasoning first, then the JSON object LAST."
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": user}]
+
+
+class IndividualStrategy(PromptStrategy):
+    """Frame ONE specific, randomly drawn individual from the group.
+
+    Used by :class:`~scrye.predict.MonteCarloPredictor`: called many times with
+    different sampling seeds, each draw imagines a different concrete person, so
+    averaging the draws reconstructs the group's spread from the bottom up rather
+    than asking one call to self-report its diversity. Not registered as a
+    standalone simulation system — a single individual is a poor group estimate;
+    it is only meaningful inside the Monte-Carlo average.
+    """
+
+    name = "individual"
+    SYSTEM = (
+        "You simulate one specific, randomly sampled member of a demographic "
+        "group for survey research. Each time, imagine a different concrete "
+        "person — give them a particular, realistic background, life situation, "
+        "and set of opinions a real individual in that group might hold — then "
+        "answer as that one person, not as the group average."
+    )
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        user = (
+            f"Imagine ONE specific person randomly drawn from {who}{year_clause}. "
+            "Picture their particular circumstances and views as a real "
+            "individual.\n\n"
+            f"{record.input_template.strip()}\n\n"
+            "Answer as that single person: give the probability that THIS "
+            "person chooses each option (it is fine to be fairly decided).\n"
+            f"{_json_instruction(record.options)}"
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": user}]
+
+
 # --------------------------------------------------------------------------- #
 # Registry
 # --------------------------------------------------------------------------- #
@@ -389,6 +457,7 @@ STRATEGIES: dict[str, PromptStrategy] = {
         PersonaEmbodimentStrategy(),
         AntiFlatteningStrategy(),
         ContextualizedStrategy(),
+        DiversityElicitationStrategy(),
     )
 }
 

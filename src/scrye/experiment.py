@@ -46,6 +46,7 @@ from .llm import LLMClient
 from .persona import STRATEGIES
 from .pipeline import Pipeline
 from .predict import (
+    MonteCarloPredictor,
     PostStratificationPredictor,
     Predictor,
     UniformPredictor,
@@ -76,6 +77,9 @@ ClientThunk = Callable[[], LLMClient]
 PREDICTOR_REGISTRY: dict[str, Callable[[ClientThunk], Predictor]] = {
     "zero_shot": lambda get_client: ZeroShotPredictor(get_client()),
     "uniform": lambda get_client: UniformPredictor(),
+    # Monte-Carlo individuals (default N=20); a heavier system — N LLM calls per
+    # record. Build directly with MonteCarloPredictor(...) to vary N/temperature.
+    "monte_carlo": lambda get_client: MonteCarloPredictor(get_client()),
 }
 
 

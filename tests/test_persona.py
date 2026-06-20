@@ -147,3 +147,28 @@ def test_third_person_strategies_mention_the_group():
 def test_get_strategy_unknown_raises():
     with pytest.raises(ValueError, match="Unknown strategy"):
         get_strategy("does_not_exist")
+
+
+def test_diversity_elicitation_registered_and_reasons_first():
+    assert "diversity_elicitation" in STRATEGIES
+    rec = _rec({"cntry": "Finland"}, "You are from Finland.")
+    messages = STRATEGIES["diversity_elicitation"].build_messages(rec)
+    assert len(messages) == 2 and messages[0]["role"] == "system"
+    user = messages[1]["content"]
+    assert "from Finland" in user
+    assert "RANGE of views" in user
+    assert "[A, B]" in user and "LAST" in user
+
+
+def test_individual_strategy_frames_one_person_and_is_not_a_group_system():
+    from scrye.persona import IndividualStrategy
+
+    # deliberately NOT registered: a single individual is a poor group estimate
+    assert "individual" not in STRATEGIES
+    rec = _rec({"cntry": "Finland"}, "You are from Finland.")
+    user = "\n".join(
+        m["content"] for m in IndividualStrategy().build_messages(rec)
+        if m["role"] == "user"
+    )
+    assert "ONE specific person" in user
+    assert "from Finland" in user

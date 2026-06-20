@@ -118,6 +118,73 @@ class UniformPredictor(Predictor):
         return _uniform(record)
 
 
+class MonteCarloPredictor(Predictor):
+    """Simulate a population by sampling individuals and averaging their answers.
+
+    Instead of one call describing the whole group, draw ``n_individuals`` from
+    the segment — each a distinct temperature-sampled persona (via
+    :class:`~scrye.persona.IndividualStrategy`) — and average their predicted
+    distributions. The group's spread emerges from cross-draw variation rather
+    than from a single call self-reporting its diversity. This tests whether
+    *external* aggregation of sampled individuals beats *internal* group framing.
+
+    Draws use fixed, distinct seeds (``base_seed + i``) and a non-zero
+    ``temperature`` so the aggregate is reproducible from cache yet varied across
+    individuals. Each individual's distribution is normalized before averaging so
+    every draw contributes equally. Unparseable draws are skipped (counted in
+    ``n_parse_failures``); if every draw fails, falls back to uniform.
+    """
+
+    def __init__(
+        self,
+        client: LLMClient,
+        n_individuals: int = 20,
+        temperature: float = 1.0,
+        base_seed: int = 0,
+        name: str = "monte_carlo",
+        strategy: PromptStrategy | None = None,
+    ) -> None:
+        from .persona import IndividualStrategy
+
+        self.client = client
+        self.n_individuals = n_individuals
+        self.temperature = temperature
+        self.base_seed = base_seed
+        self.name = name
+        self.strategy = strategy or IndividualStrategy()
+        self.n_parse_failures = 0
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        messages = self.strategy.build_messages(record)
+        agg = {opt: 0.0 for opt in record.options}
+        valid = 0
+        for i in range(self.n_individuals):
+            text = self.client.complete(
+                messages, temperature=self.temperature, seed=self.base_seed + i
+            ).text
+            parsed = _extract_json_object(text)
+            if not parsed:
+                self.n_parse_failures += 1
+                continue
+            draw: dict[str, float] = {}
+            for opt in record.options:
+                try:
+                    draw[opt] = max(0.0, float(parsed.get(opt, 0.0)))
+                except (TypeError, ValueError):
+                    draw[opt] = 0.0
+            total = sum(draw.values())
+            if total <= 0:
+                self.n_parse_failures += 1
+                continue
+            for opt in record.options:  # normalize each individual, then average
+                agg[opt] += draw[opt] / total
+            valid += 1
+        if valid == 0:
+            return _uniform(record)
+        grand = sum(agg.values())
+        return {opt: value / grand for opt, value in agg.items()}
+
+
 class PostStratificationPredictor(Predictor):
     """Combine subgroup predictions into a coarser estimate by reweighting.
 
