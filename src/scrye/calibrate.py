@@ -50,3 +50,10 @@ class IdentityCalibrator(Calibrator):
         self, record: SimBenchRecord, pred: Mapping[str, float]
     ) -> dict[str, float]:
         return dict(pred)
+
+
+def make_calibrator(name: str, **kwargs) -> Calibrator:
+    """Factory: calibrator name -> instance. Expanded in Task 2."""
+    if name == "identity":
+        return IdentityCalibrator()
+    raise KeyError(f"Unknown calibrator {name!r}.")
