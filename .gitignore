@@ -24,3 +24,6 @@ runs/
 # Editor / agent local dirs
 .claude/
 .vscode/
+
+# Research papers (large PDFs; indexed in docs/literature.md)
+docs/papers/
