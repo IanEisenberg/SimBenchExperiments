@@ -22,7 +22,7 @@ import numpy as np
 
 @dataclass
 class LadderGate:
-    eta: float
+    eta: float  # noise guard; eta=0.0 means NO buffer, every improvement is accepted. Should come from bootstrap_eta on a non-degenerate reference, computed once before search.
     best: float = float("-inf")
     k: int = 0  # total queries spent (the global K when this gate is the run's gate)
 
@@ -47,6 +47,22 @@ def bootstrap_eta(
     This is the noise scale of the val mean-S: the smallest difference between
     two pipelines that is distinguishable from finite-sample wobble. Use a
     reference pipeline's per-record val scores as `scores`.
+
+    Limitations / integrity notes:
+    - eta estimates ONE pipeline's sampling noise (std of bootstrap means), NOT
+      the pairwise difference between two pipelines. Since candidate and
+      incumbent are scored on the same val records, their scores correlate; this
+      single-pipeline estimate ignores that covariance and is conservative.
+    - mult < 1.0 weakens the guard and mult >= 1.0 is the conservative regime.
+      mult should be fixed before the run, not tuned to admit a specific
+      candidate.
+    - seed should be fixed once at run level. Re-rolling seed re-draws the
+      bootstrap with O(1/sqrt(n_boot)) noise; choosing a seed for smaller eta
+      is p-hacking. Compute eta once, before any val queries.
+    - A degenerate reference vector (empty, all-constant) yields eta = 0.0,
+      which disables the noise buffer (gate reduces to score > best). Ensure
+      the reference val set is non-degenerate and adequately sized; do not
+      operate with eta = 0.0 in production.
     """
     arr = np.asarray(list(scores), dtype=float)
     if arr.size == 0:
