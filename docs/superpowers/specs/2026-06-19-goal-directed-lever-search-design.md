@@ -37,7 +37,7 @@ So the system's objective is reframed from *"maximize S on val"* to *"discover g
 
 Required questions stay pinned to `test` (`pin_required_to="test"`), so the headline required-question results are reported from never-searched data. `DataSplit.check_disjoint()` is asserted before any run.
 
-**Split sizing:** val must be large enough that the Ladder threshold η (§5) is smaller than the lever effects we care about. The implementation plan must include a pre-run check: bootstrap the val-S noise floor and confirm it is below the smallest lever ΔS worth claiming; widen val (shrink dev) if not. This is an open parameter — see §9.
+**Split sizing:** val must be large enough that the Ladder threshold η (§5) is smaller than the lever effects we care about. The implementation plan must include a pre-run check: bootstrap the val-S noise floor and confirm it is below the smallest lever ΔS worth claiming; widen val (shrink dev) if not. This is an open parameter — see §10.
 
 ---
 
@@ -91,6 +91,7 @@ class SearchContract:
     allowed_levers: list[str]        # subset of the frozen registry the loop may explore
     autonomy_budget: int             # max autonomous DEV steps before mandatory check-in (e.g. 8)
     val_query_budget: int            # the Ladder K cap — max NEW val queries before check-in (e.g. 3)
+    cost_cap_usd: float = 1000.0     # hard ceiling on cumulative NEW OpenRouter spend (§9); loop halts before exceeding it
     gate_policy: GatePolicy          # which events pause for a human (below)
     eta_rule: str = "bootstrap"      # how the Ladder threshold is set (§5)
 ```
@@ -105,6 +106,7 @@ class GatePolicy:
     gate_at_val_budget_frac: float = 1.0      # pause when this fraction of K cap is spent
     gate_on_surprise: bool = True             # pause on an unexpected accept/reject
     gate_after_dev_steps: int | None = None   # pause every N autonomous dev steps
+    gate_at_cost_frac: float = 0.8            # pause when cumulative spend reaches this fraction of cost_cap_usd (§9)
 ```
 
 **Invariant that cannot be disabled:** proposing a lever **not** on the pre-registered list always halts for human approval (`gate_off_registry_proposal` is forced `True`). Adding to the comparison set is the one action that changes the overfitting accounting, so it is never autonomous.
@@ -116,7 +118,7 @@ class GatePolicy:
 Each autonomous step:
 
 1. **Propose** — Claude selects the next lever (or a param refinement) from `allowed_levers`, writes a rationale referencing the lever's hypothesis/mechanism.
-2. **Fit & score on dev** — build the pipeline via `Pipeline`, run `predict_batch` on `dev` (cached by config hash → free if seen), compute dev S via `simbench_score` / `evaluate`.
+2. **Fit & score on dev** — build the pipeline via `Pipeline`, run `predict_batch` on `dev` (cached by config hash → free if seen), compute dev S via `simbench_score` / `evaluate`. The scorer also returns the **new OpenRouter spend** for this step (cache hits = $0), which is logged on the node and added to the running total (§9).
 3. **Decide promotion** — if the dev result clears the lever's expected direction, request a val query; else log the dead end on the tree and continue (no K spent).
 4. **Gate check** — consult `GatePolicy`; pause and surface the trail if any trigger fires.
 5. **Val query (metered)** — run the Ladder gate (§5): accept into the running pipeline iff ΔS > η. Spend one K. Log node with cumulative global K.
@@ -159,6 +161,8 @@ class ExperimentNode:
     eta: float | None            # the Ladder threshold at query time
     accepted: bool | None        # Ladder verdict (None if not queried)
     global_k_at_query: int | None  # cumulative distinct val queries when this was scored
+    cost_usd: float              # NEW OpenRouter spend to produce this node (dev + any val); cache hits = 0.0
+    cum_cost_usd: float          # running total new spend across the whole tree at this node (§9)
     timestamp: str
 ```
 
@@ -169,6 +173,7 @@ The `config_hash` is the content address of the `PipelineSpec`; because state is
 - **Resume from any node** — `search.py --from <node_id>` opens a new branch off that state. Fork three recalibration ideas off one parent and compare them as sibling branches.
 - **Free dev replay** — revisiting a `config_hash` returns cached predictions; no API spend, no new K.
 - **Honest global K** — the ledger is the source of truth for total distinct val queries; the final band (§7) reads K from it.
+- **Cost ledger** — each node carries its own new spend (`cost_usd`) and the running total (`cum_cost_usd`), so cost-per-experiment is queryable directly from the tree and the run's total spend is the last node's `cum_cost_usd` (§9).
 - **Visualization** — the notebook renders the tree (nodes colored by accept/reject/dead-end; edges labeled by lever), so the search path is legible at a glance. This rendered tree + the query ledger **is** the rigor artifact for the presentation.
 
 ### 6.3 Persistence
@@ -183,6 +188,7 @@ JSONL append-only under `outputs/ledger/<run>.jsonl` (gitignored, like other run
 - **K-corrected band.** The confidence band on the selected-pipeline val→test claim is widened to reflect the realized global K (Ladder bound). State K explicitly: "selected from K=__ distinct val queries across the search tree."
 - **The query ledger and rendered tree** are presented as evidence the search did not launder noise — the every-query-disclosed Ladder discipline, made visible.
 - **Counterfactual sensitivity** (delta-vector directional agreement + magnitude correlation) reported per the gameplan's signature metric, on test.
+- **Cost summary** — total OpenRouter spend for the whole search (the tree's final `cum_cost_usd`), plus a per-experiment cost table (cost vs. ΔS), so the spend that bought the reported number is itself disclosed (§9).
 
 ---
 
@@ -210,32 +216,64 @@ check-in at budget ──► human redirects / approves / rewinds-to-node / exte
 final pipeline ──► score ONCE on TEST ──► raw S + ceiling-normalized S + K-corrected band
 ```
 
-No lever ever sees test; val is reached only through the η-gate; dev is free and unlimited.
+No lever ever sees test; val is reached only through the η-gate; dev is free and unlimited. Every scored step also records its new OpenRouter spend on the node; the loop halts before cumulative spend would exceed `cost_cap_usd` (§9).
 
 ---
 
-## 9. Open parameters (decide during implementation, not now)
+## 9. Compute & cost model
+
+This makes explicit *what runs where* and *what it costs* — both the who-pays boundary and per-experiment dollar accounting.
+
+### 9.1 Three layers, three cost profiles
+
+| Layer | What it does | Cost |
+|---|---|---|
+| **Claude Code (subscription)** | The search *intelligence*: proposes the next lever from theory + observed results, writes rationales, decides when to spend a val query, when to branch/stop. Drives the loop by calling the rails below. | Flat-rate subscription. No per-experiment charge. |
+| **Python rails (`spec/levers/ladder/ledger/search/report`)** | Deterministic bookkeeping and guardrails: Ladder gate, global-K accounting, content-addressed cache, tree persistence, K-corrected bands, cost accounting. | $0. No LLM, no network. |
+| **OpenRouter (metered)** | The only paid layer: inside `score_fn` → `evaluate` → `Pipeline.predict_batch` → `LLMClient`, the simulator model is called on data to produce distributions. | Per-token $; the thing we cap and track. |
+
+The search loop is therefore cheap to *run* and only spends money where it scores a candidate on data. Cache hits (re-walked configs) cost **$0** of new spend.
+
+### 9.2 Capturing cost
+
+`LLMClient.Usage` currently tracks calls/cache-hits/tokens but **not dollars**. We extend it:
+
+- Request native cost from OpenRouter by sending `extra_body={"usage": {"include": True}}`; read `usage.cost` (USD) off each completion and store it in the cached record alongside the token counts.
+- **Fallback:** if a response omits `cost`, estimate from `prompt_tokens`/`completion_tokens` against a small per-model price table in `config.py` (keyed by model id). The estimate is marked so reports can flag any model lacking native cost.
+- `Usage` gains `cost_usd: float`, accumulating **new** spend only (a cache hit adds $0, matching the K-accounting philosophy that re-walking explored territory is free).
+
+### 9.3 Attribution & enforcement
+
+- **Per experiment:** `score_fn` snapshots `client.usage.cost_usd` before and after scoring a `PipelineSpec` and returns the delta in its breakdown. That delta is written to the node's `cost_usd`; `cum_cost_usd` is the running tree total. Cost-per-experiment is thus a first-class, queryable field — the primary thing the operator asked to track.
+- **Enforcement:** before any step that would spend (a dev or val score that isn't a pure cache hit), the loop checks `cum_cost_usd + projected ≤ cost_cap_usd` (default **$1000**). It pauses for human approval at `gate_at_cost_frac` of the cap and hard-halts rather than cross it. Projected cost uses a cheap heuristic (records × recent mean cost-per-record for that model).
+- **Reporting:** the final report states total spend and a per-experiment cost table (§7), so the dollar cost that produced the headline number is disclosed alongside it.
+
+---
+
+## 10. Open parameters (decide during implementation, not now)
 
 1. **val size / η calibration** — pick val fraction so the bootstrap η is below the smallest lever ΔS worth claiming. Check empirically on a pilot before the real search.
 2. **η multiple** — how many noise-floor units define "significant." Start conservative (favor false rejects over false accepts; an over-strict gate costs a real lever, an under-strict gate costs the honesty claim).
 3. **Default budgets** — `autonomy_budget`, `val_query_budget` starting values; tune after one dry run on dev only.
 4. **Surprise detector** — what counts as a "surprising" accept/reject for `gate_on_surprise` (e.g., dev-predicted direction contradicted by val).
+5. **Price-table fallback** — per-model $/token entries used only when OpenRouter omits native `usage.cost`. Seed with the models the search is allowed to swap in; native cost is preferred whenever present.
 
 ---
 
-## 10. Effort fit
+## 11. Effort fit
 
 | Piece | Est. | Notes |
 |---|---|---|
 | `levers.py` registry + seeded levers | ~1.5h | Most levers wrap existing predictors/calibrators. |
 | `ledger.py` tree + persistence + viz | ~1.5h | JSONL + a tree-render cell. |
 | `search.py` contract + loop + Ladder gate | ~1.5h | Gate logic is small; Ladder is a few lines. |
+| Cost capture in `LLMClient` + cap enforcement | ~0.5h | `usage.cost` capture + price-table fallback + per-node attribution. |
 | Wiring + pilot η check | ~1h | Confirm val sizing before real search. |
 
-~5.5h to stand up; leaves the gameplan's phase-2/3 budget for actually *running* levers. Stays inside Approach A.
+~6h to stand up; leaves the gameplan's phase-2/3 budget for actually *running* levers. Stays inside Approach A.
 
 ---
 
-## 11. Why this is defensible (the one-paragraph pitch)
+## 12. Why this is defensible (the one-paragraph pitch)
 
 The literature says an automated benchmark maximizer overfits its holdout and can show large gains from pure noise even under full disclosure. So we don't build a maximizer — we build a *guarded explorer*: a pre-registered lever set, a Claude-driven loop with bounded autonomy and flexible human gates, every val query metered through a Ladder rule with a data-derived threshold, and a single global K-counter that keeps the overfitting story honest across the entire branching search. The reported number comes from test data touched exactly once. The guard is not overhead — it is the artifact that proves the result is real.

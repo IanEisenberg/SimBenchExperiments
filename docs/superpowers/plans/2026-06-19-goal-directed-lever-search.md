@@ -4,7 +4,7 @@
 
 **Goal:** Build a semi-autonomous, Ladder-guarded loop that explores theory-motivated SimBench interventions ("levers") on a dev split, adjudicates each on a metered val split, and records the whole search path in a resumable experiment-tree ledger — without overfitting the holdout.
 
-**Architecture:** Six new modules layered on the existing harness. A `PipelineSpec` is a content-addressed description of a pipeline; a `Lever` is a pure `spec -> spec` transform; a `Ladder` gate accepts a candidate on val only if it beats the running best by a data-derived threshold η; a `Ledger` records every step as a DAG node keyed by config hash; a `search` loop drives propose→score-dev→gate→ladder→log under a `SearchContract`; a `report` layer produces the K-corrected, test-once headline. Scoring is injected (`score_fn`) so the whole loop is unit-testable with no network.
+**Architecture:** Six new modules layered on the existing harness, plus a cost-capture extension to `LLMClient`. A `PipelineSpec` is a content-addressed description of a pipeline; a `Lever` is a pure `spec -> spec` transform; a `Ladder` gate accepts a candidate on val only if it beats the running best by a data-derived threshold η; a `Ledger` records every step as a DAG node keyed by config hash, carrying its OpenRouter spend; a `search` loop drives propose→score-dev→gate→ladder→log under a `SearchContract` with a dollar cap; a `report` layer produces the K-corrected, test-once headline and a cost summary. Scoring is injected (`score_fn`) so the whole loop is unit-testable with no network; the production `score_fn` measures real per-experiment dollar cost from the client.
 
 **Tech Stack:** Python 3.12, numpy, pandas, pytest. No new dependencies. Builds on `scrye.pipeline`, `scrye.calibrate`, `scrye.predict`, `scrye.evaluate`, `scrye.scoring`, `scrye.experiment`, `scrye.splits`.
 
@@ -16,6 +16,7 @@
 - **Style:** frozen dataclasses for value types; short `name`/`id` attributes; module-level docstring on every file; one clear responsibility per module.
 - **SimBench score** is `scrye.scoring.simbench_score`; aggregate via `scrye.scoring.aggregate_score`; CIs via `scrye.scoring.bootstrap_ci`. Always pass dataset-level `normalizers` from `scrye.evaluate.build_normalizers` for reported numbers.
 - **Determinism:** any timestamp or id generation is injected (`now_fn`) or derived from counts, so tests are reproducible. Never call `datetime.now()` inside a tested function without an injectable override.
+- **Cost:** OpenRouter is the only paid layer (inside `score_fn`). Every experiment's new spend is captured (cache hits = $0), logged on its ledger node, and bounded by `SearchContract.cost_cap_usd` (default **$1000**). Cost rides in the `score_fn` breakdown dict under `"cost_usd"` — no signature change. See spec §9.
 - **Commit after every task** with the message shown in the task's final step.
 
 ---
@@ -794,8 +795,8 @@ git commit -m "feat: add Ladder gate + bootstrap eta for guarded val queries"
 **Interfaces:**
 - Consumes: `dataclasses`, `json`.
 - Produces:
-  - `ExperimentNode` (frozen dataclass) with the fields from spec §6.1.
-  - `Ledger(path: str | Path)` with: `append(node)`, classmethod `load(path) -> Ledger`, `nodes: list[ExperimentNode]`, `by_id(node_id)`, `by_config_hash(h) -> ExperimentNode | None`, `val_nodes() -> list`, `global_k() -> int` (distinct queried config hashes), `best_val() -> float`, `children(node_id) -> list`, `path_to_root(node_id) -> list`, `next_node_id() -> str`.
+  - `ExperimentNode` (frozen dataclass) with the fields from spec §6.1, including `cost_usd: float = 0.0` and `cum_cost_usd: float = 0.0` (trailing defaults so existing construction sites are unaffected).
+  - `Ledger(path: str | Path)` with: `append(node)`, classmethod `load(path) -> Ledger`, `nodes: list[ExperimentNode]`, `by_id(node_id)`, `by_config_hash(h) -> ExperimentNode | None`, `val_nodes() -> list`, `global_k() -> int` (distinct queried config hashes), `best_val() -> float`, `total_cost() -> float` (sum of node `cost_usd`), `children(node_id) -> list`, `path_to_root(node_id) -> list`, `next_node_id() -> str`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -807,12 +808,13 @@ from scrye.ledger import ExperimentNode, Ledger
 
 
 def _node(led, config_hash, parent=None, lever="recalib.global_temp",
-          dev=10.0, val=None, accepted=None, k=None):
+          dev=10.0, val=None, accepted=None, k=None, cost=0.0, cum=0.0):
     return ExperimentNode(
         node_id=led.next_node_id(), config_hash=config_hash, parent_id=parent,
         lever_id=lever, rationale="because", dev_score=dev, dev_breakdown={},
         val_score=val, eta=(0.5 if val is not None else None), accepted=accepted,
         global_k_at_query=k, timestamp="2026-06-19T00:00:00",
+        cost_usd=cost, cum_cost_usd=cum,
     )
 
 
@@ -848,6 +850,14 @@ def test_best_val_among_queried(tmp_path):
     led.append(_node(led, "hashA", val=12.0, accepted=True, k=1))
     led.append(_node(led, "hashB", val=9.0, accepted=False, k=2))
     assert led.best_val() == 12.0
+
+
+def test_total_cost_sums_new_spend(tmp_path):
+    led = Ledger(tmp_path / "run.jsonl")
+    led.append(_node(led, "hashA", val=12.0, accepted=True, k=1, cost=3.0, cum=3.0))
+    led.append(_node(led, "hashB", val=9.0, accepted=False, k=2, cost=2.0, cum=5.0))
+    led.append(_node(led, "hashC", cost=0.0, cum=5.0))  # cache hit / dev-only, no new spend
+    assert abs(led.total_cost() - 5.0) < 1e-9
 
 
 def test_path_to_root_and_children(tmp_path):
@@ -903,6 +913,8 @@ class ExperimentNode:
     accepted: bool | None
     global_k_at_query: int | None
     timestamp: str
+    cost_usd: float = 0.0       # NEW OpenRouter spend for this node (cache hits = 0.0)
+    cum_cost_usd: float = 0.0   # running tree total at this node
 
 
 class Ledger:
@@ -955,6 +967,10 @@ class Ledger:
         vals = [n.val_score for n in self.val_nodes()]
         return max(vals) if vals else float("-inf")
 
+    def total_cost(self) -> float:
+        """Total NEW OpenRouter spend across the whole tree (cache hits add 0)."""
+        return float(sum(n.cost_usd for n in self.nodes))
+
     # -- tree --------------------------------------------------------------
     def children(self, node_id: str) -> list[ExperimentNode]:
         return [n for n in self.nodes if n.parent_id == node_id]
@@ -971,7 +987,7 @@ class Ledger:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/test_ledger.py -v`
-Expected: PASS (5 passed).
+Expected: PASS (6 passed).
 
 - [ ] **Step 5: Commit**
 
@@ -991,8 +1007,8 @@ git commit -m "feat: add append-only experiment-tree ledger with global-K"
 **Interfaces:**
 - Consumes: `scrye.spec.PipelineSpec`, `scrye.levers.apply_lever` / `LEVER_REGISTRY`, `scrye.ladder.LadderGate`, `scrye.ledger.Ledger`/`ExperimentNode`.
 - Produces:
-  - `GatePolicy(gate_off_registry_proposal=True, gate_on_val_query=False, gate_at_val_budget_frac=1.0, gate_on_surprise=True, gate_after_dev_steps=None)`.
-  - `SearchContract(goal, allowed_levers, autonomy_budget, val_query_budget, gate_policy, eta=0.0)`.
+  - `GatePolicy(gate_off_registry_proposal=True, gate_on_val_query=False, gate_at_val_budget_frac=1.0, gate_on_surprise=True, gate_after_dev_steps=None, gate_at_cost_frac=0.8)`.
+  - `SearchContract(goal, allowed_levers, autonomy_budget, val_query_budget, gate_policy, eta=0.0, cost_cap_usd=1000.0)`.
   - `Proposal(lever_id, params, rationale)`; a `propose_fn: Callable[[SearchState], Proposal | None]`.
   - `SearchState(spec, dev_best, val_best, k_spent, history)`.
   - `SearchOutcome(stop_reason, final_spec, steps)`.
@@ -1109,6 +1125,34 @@ def test_propose_none_stops_cleanly(tmp_path):
         propose_fn=lambda state: None, now_fn=_now,
     )
     assert out.stop_reason == "proposer_done"
+
+
+def test_cost_cap_halts_before_exceeding(tmp_path):
+    led = Ledger(tmp_path / "r.jsonl")
+    # Each step's dev score carries $10 of new spend (in the breakdown); cap = $25,
+    # so the loop logs two $10 steps and blocks the third before it can spend.
+    proposals = iter([
+        Proposal("recalib.global_temp", {"T": 1.5}, "a"),
+        Proposal("recalib.dirichlet", {"alpha": 0.05}, "b"),
+        Proposal("recalib.dirichlet", {"alpha": 0.1}, "c"),
+    ])
+
+    def score_fn(spec, recs):
+        # Dev call carries the cost; val call is free here. Dev always promotes.
+        if recs == ["dev"]:
+            return 20.0 + len(spec.lever_path), {"cost_usd": 10.0}
+        return 30.0 + len(spec.lever_path), {"cost_usd": 0.0}
+
+    out = run_search(
+        # gate_at_cost_frac=1.0 disables the soft pause so we test the hard cap alone.
+        _contract(autonomy_budget=10, val_query_budget=10, cost_cap_usd=25.0,
+                  gate_policy=GatePolicy(gate_on_surprise=False, gate_at_cost_frac=1.0)),
+        led, dev=["dev"], val=["val"], score_fn=score_fn,
+        propose_fn=lambda s: next(proposals, None), now_fn=_now,
+    )
+    assert out.stop_reason == "cost_cap_reached"
+    assert abs(led.total_cost() - 20.0) < 1e-9       # two $10 steps logged; third blocked
+    assert led.nodes[-1].cum_cost_usd == 20.0
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1151,6 +1195,7 @@ class GatePolicy:
     gate_at_val_budget_frac: float = 1.0
     gate_on_surprise: bool = True
     gate_after_dev_steps: int | None = None
+    gate_at_cost_frac: float = 0.8            # pause when spend hits this fraction of the cap
 
 
 @dataclass(frozen=True)
@@ -1161,6 +1206,7 @@ class SearchContract:
     val_query_budget: int
     gate_policy: GatePolicy
     eta: float = 0.0
+    cost_cap_usd: float = 1000.0   # hard ceiling on cumulative NEW OpenRouter spend
 
 
 @dataclass(frozen=True)
@@ -1176,6 +1222,8 @@ class SearchState:
     dev_best: float
     val_best: float
     k_spent: int
+    cum_cost: float = 0.0        # cumulative NEW spend so far
+    last_step_cost: float = 0.0  # cost of the previous step (projection for the pre-step guard)
     history: list = field(default_factory=list)
 
 
@@ -1207,7 +1255,8 @@ def run_search(
     # Reconstruct global state from the ledger so resuming never resets K/best.
     gate = LadderGate(eta=contract.eta, best=ledger.best_val(), k=ledger.global_k())
     state = SearchState(spec=spec, dev_best=float("-inf"),
-                        val_best=ledger.best_val(), k_spent=ledger.global_k())
+                        val_best=ledger.best_val(), k_spent=ledger.global_k(),
+                        cum_cost=ledger.total_cost())
 
     steps = 0
     dev_steps = 0
@@ -1220,11 +1269,17 @@ def run_search(
         if proposal.lever_id not in LEVER_REGISTRY or proposal.lever_id not in contract.allowed_levers:
             return SearchOutcome("off_registry_proposal", state.spec, steps)
 
+        # Pre-step dollar guard: if the projected next spend (≈ last step's spend)
+        # would cross the cap, halt before spending rather than overshoot it.
+        if state.last_step_cost and state.cum_cost + state.last_step_cost > contract.cost_cap_usd:
+            return SearchOutcome("cost_cap_reached", state.spec, steps)
+
         new_spec = apply_lever(state.spec, proposal.lever_id, proposal.params)
         chash = new_spec.config_hash()
 
         dev_score, breakdown = score_fn(new_spec, dev)
         dev_steps += 1
+        step_cost = float(breakdown.get("cost_usd", 0.0))  # new spend for the dev score
         promote = dev_score > state.dev_best
 
         val_score = eta_used = accepted = k_at = None
@@ -1244,7 +1299,8 @@ def run_search(
                 eta_used = gate.eta
                 k_at = state.k_spent
             else:
-                val_score, _ = score_fn(new_spec, val)
+                val_score, val_breakdown = score_fn(new_spec, val)
+                step_cost += float(val_breakdown.get("cost_usd", 0.0))  # val score spend
                 accepted = gate.consider(val_score)  # spends one K, may raise best
                 eta_used = gate.eta
                 state.k_spent = gate.k
@@ -1255,12 +1311,17 @@ def run_search(
                 state.dev_best = dev_score
                 state.val_best = gate.best
 
+        # Account the step's new spend before logging, so the node carries it.
+        state.cum_cost += step_cost
+        state.last_step_cost = step_cost
+
         node = ExperimentNode(
             node_id=ledger.next_node_id(), config_hash=chash,
             parent_id=_last_node_id(ledger), lever_id=proposal.lever_id,
             rationale=proposal.rationale, dev_score=dev_score, dev_breakdown=breakdown,
             val_score=val_score, eta=eta_used, accepted=accepted,
             global_k_at_query=k_at, timestamp=now_fn(),
+            cost_usd=step_cost, cum_cost_usd=state.cum_cost,
         )
         ledger.append(node)
         state.history.append(node.node_id)
@@ -1274,6 +1335,10 @@ def run_search(
                 and state.k_spent >= gp.gate_at_val_budget_frac * contract.val_query_budget
                 and gp.gate_at_val_budget_frac < 1.0):
             return SearchOutcome("val_budget_frac_gate", state.spec, steps)
+        if (contract.cost_cap_usd
+                and state.cum_cost >= gp.gate_at_cost_frac * contract.cost_cap_usd
+                and gp.gate_at_cost_frac < 1.0):
+            return SearchOutcome("cost_frac_gate", state.spec, steps)
         if gp.gate_after_dev_steps and dev_steps >= gp.gate_after_dev_steps:
             return SearchOutcome("dev_steps_gate", state.spec, steps)
         if gp.gate_on_surprise and promote and accepted is False:
@@ -1290,7 +1355,7 @@ def _last_node_id(ledger: Ledger) -> str | None:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/test_search.py -v`
-Expected: PASS (5 passed). If `test_val_budget_cap_halts` stops with `val_budget_reached` at `global_k()==2`, the budget accounting is correct.
+Expected: PASS (6 passed). If `test_val_budget_cap_halts` stops with `val_budget_reached` at `global_k()==2`, the budget accounting is correct; `test_cost_cap_halts_before_exceeding` confirms the dollar cap blocks the third step.
 
 - [ ] **Step 5: Commit**
 
@@ -1301,7 +1366,182 @@ git commit -m "feat: add guarded search loop with bounded autonomy + gates"
 
 ---
 
-### Task 7: Reporting — production `score_fn`, K-corrected band, test-once headline
+### Task 7: Per-call dollar cost capture in `LLMClient`
+
+**Files:**
+- Modify: `src/scrye/config.py` (add `MODEL_PRICES` + `price_for`)
+- Modify: `src/scrye/llm.py` (add `Usage.cost_usd`, native-cost capture + token fallback, store cost on the cache record)
+- Test: `tests/test_llm_cost.py`
+
+**Interfaces:**
+- Consumes: existing `Usage`/`LLMClient` in `scrye.llm`; `scrye.config`.
+- Produces:
+  - `MODEL_PRICES: dict[str, tuple[float, float]]` — model id → (prompt $/Mtok, completion $/Mtok).
+  - `price_for(model, prices=None) -> tuple[float, float]` — table lookup; unknown model → `(0.0, 0.0)`.
+  - `estimate_cost(prompt_tokens, completion_tokens, model, prices=None) -> float`.
+  - `cost_of_record(record, prices=None) -> float` — prefer native `record["cost"]`, else token estimate.
+  - `Usage.cost_usd: float` accumulating **new** spend only (cache hits add 0), included in `as_dict()`.
+
+**Why:** `LLMClient.Usage` tracks tokens but not dollars (see spec §9.2). The production `score_fn` (Task 8) measures per-experiment cost as the delta of `client.usage.cost_usd` across a scoring call, so this primitive must land first.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# tests/test_llm_cost.py
+"""Cost capture: native-cost preference, token-price fallback, cache-hit = $0."""
+
+from scrye.config import price_for
+from scrye.llm import Usage, cost_of_record, estimate_cost
+
+
+def test_estimate_cost_uses_price_table():
+    prices = {"m": (1.0, 2.0)}  # $1/Mtok in, $2/Mtok out
+    # 1e6 prompt tokens -> $1; 1e6 completion -> $2; total $3.
+    assert abs(estimate_cost(1_000_000, 1_000_000, "m", prices) - 3.0) < 1e-9
+
+
+def test_unknown_model_estimates_zero():
+    assert price_for("nope", {"m": (1.0, 2.0)}) == (0.0, 0.0)
+    assert estimate_cost(1_000_000, 1_000_000, "nope", {"m": (1.0, 2.0)}) == 0.0
+
+
+def test_cost_of_record_prefers_native_cost():
+    rec = {"cost": 0.42, "prompt_tokens": 9, "completion_tokens": 9, "model": "m"}
+    assert cost_of_record(rec, {"m": (1000.0, 1000.0)}) == 0.42  # native wins over estimate
+
+
+def test_cost_of_record_falls_back_to_estimate():
+    rec = {"prompt_tokens": 1_000_000, "completion_tokens": 0, "model": "m"}
+    assert abs(cost_of_record(rec, {"m": (1.0, 2.0)}) - 1.0) < 1e-9
+
+
+def test_usage_dict_includes_cost():
+    u = Usage()
+    u.cost_usd = 1.25
+    assert u.as_dict()["cost_usd"] == 1.25
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pytest tests/test_llm_cost.py -v`
+Expected: FAIL with `ImportError: cannot import name 'cost_of_record'`.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Append to `src/scrye/config.py`:
+
+```python
+# Per-model OpenRouter prices, USD per 1M tokens (prompt, completion). Used ONLY
+# as a fallback when a response omits native usage.cost. Seed the models the
+# search may swap in; an unknown model estimates to $0 (native cost still wins).
+MODEL_PRICES: dict[str, tuple[float, float]] = {
+    "google/gemini-2.0-flash-001": (0.10, 0.40),
+    "google/gemini-2.0-flash-lite-001": (0.075, 0.30),
+    "qwen/qwen-2.5-72b-instruct": (0.35, 0.40),
+    "deepseek/deepseek-chat": (0.38, 0.89),
+}
+
+
+def price_for(model: str, prices: dict[str, tuple[float, float]] | None = None) -> tuple[float, float]:
+    """(prompt, completion) $/Mtok for a model; (0.0, 0.0) if unknown."""
+    table = MODEL_PRICES if prices is None else prices
+    return table.get(model, (0.0, 0.0))
+```
+
+In `src/scrye/llm.py`, extend the import and `Usage`, add the two module functions, and capture cost in `complete`:
+
+```python
+# change the existing config import line to also bring in price_for:
+from .config import CACHE_DIR, OpenRouterConfig, price_for
+```
+
+```python
+# add cost_usd to Usage (new spend only; cache hits add 0):
+@dataclass
+class Usage:
+    calls: int = 0
+    cache_hits: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cost_usd: float = 0.0
+
+    @property
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    def as_dict(self) -> dict:
+        return {
+            "calls": self.calls,
+            "cache_hits": self.cache_hits,
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "cost_usd": self.cost_usd,
+        }
+```
+
+```python
+# module-level helpers (place after _cache_key):
+def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str,
+                  prices: dict | None = None) -> float:
+    """USD cost from token counts and a per-Mtok price table."""
+    p_in, p_out = price_for(model, prices)
+    return prompt_tokens / 1e6 * p_in + completion_tokens / 1e6 * p_out
+
+
+def cost_of_record(record: dict, prices: dict | None = None) -> float:
+    """Prefer OpenRouter's native `cost`; else estimate from tokens."""
+    native = record.get("cost")
+    if native is not None:
+        return float(native)
+    return estimate_cost(record.get("prompt_tokens", 0), record.get("completion_tokens", 0),
+                         record.get("model", ""), prices)
+```
+
+In `complete`, request native cost and accumulate new spend (changes shown in context):
+
+```python
+        completion = self._client.chat.completions.create(
+            **payload, extra_body={"usage": {"include": True}}
+        )
+        text = completion.choices[0].message.content or ""
+        usage = getattr(completion, "usage", None)
+        native_cost = getattr(usage, "cost", None)
+        if native_cost is None and usage is not None:
+            native_cost = (getattr(usage, "model_extra", None) or {}).get("cost")
+        record = {
+            "text": text,
+            "model": self.model,
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+            "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+            "cost": native_cost,  # may be None -> estimated below
+            "params": {k: v for k, v in payload.items() if k != "messages"},
+        }
+
+        with self._lock:
+            self.usage.calls += 1
+            self.usage.prompt_tokens += record["prompt_tokens"]
+            self.usage.completion_tokens += record["completion_tokens"]
+            self.usage.cost_usd += cost_of_record(record)  # new spend only
+```
+
+Note: a cache hit returns before this block, so `cost_usd` accumulates **new** spend only — matching the K-accounting rule that re-walking explored territory is free.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `pytest tests/test_llm_cost.py -v`
+Expected: PASS (5 passed).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/scrye/config.py src/scrye/llm.py tests/test_llm_cost.py
+git commit -m "feat: capture per-call OpenRouter cost in LLMClient (native + fallback)"
+```
+
+---
+
+### Task 8: Reporting — production `score_fn`, K-corrected band, test-once headline
 
 **Files:**
 - Create: `src/scrye/report.py`
@@ -1310,9 +1550,9 @@ git commit -m "feat: add guarded search loop with bounded autonomy + gates"
 **Interfaces:**
 - Consumes: `scrye.spec.build_from_spec`, `scrye.evaluate.evaluate`/`summarize`, `scrye.scoring.aggregate_score`, `scrye.ledger.Ledger`.
 - Produces:
-  - `make_score_fn(normalizers, *, client=None, max_workers=8) -> ScoreFn` — the production scorer (`spec, records -> (mean_score, breakdown)`), `breakdown` carrying entropy-binned means.
+  - `make_score_fn(normalizers, *, client=None, max_workers=8) -> ScoreFn` — the production scorer (`spec, records -> (mean_score, breakdown)`), `breakdown` carrying entropy-binned means and `"cost_usd"` (the new OpenRouter spend for this scoring call, measured as the client's `usage.cost_usd` delta).
   - `k_corrected_band(mean: float, n: int, k: int, *, mult: float = 1.0) -> tuple[float, float]` — widen a band by the Ladder factor `(log(max(k,1)·n)/n)^(1/3)`.
-  - `final_report(spec, test, normalizers, ledger, *, client=None) -> dict` — score the frozen spec ONCE on test; return raw mean, CI, K-corrected band, and `global_k`.
+  - `final_report(spec, test, normalizers, ledger, *, client=None) -> dict` — score the frozen spec ONCE on test; return raw mean, CI, K-corrected band, `global_k`, and `total_cost_usd` (the whole search's spend, from the ledger).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1351,6 +1591,7 @@ def test_score_fn_returns_mean_and_breakdown():
     mean, breakdown = score_fn(spec, recs)
     assert isinstance(mean, float)
     assert "by_entropy" in breakdown
+    assert breakdown["cost_usd"] == 0.0  # uniform predictor makes no API calls
 
 
 def test_final_report_scores_uniform_to_zero(tmp_path):
@@ -1366,6 +1607,7 @@ def test_final_report_scores_uniform_to_zero(tmp_path):
     assert abs(rep["mean_score"]) < 1e-9
     assert rep["global_k"] == 0
     assert "k_band_low" in rep and "k_band_high" in rep
+    assert rep["total_cost_usd"] == 0.0  # empty ledger -> no spend
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1401,18 +1643,31 @@ from .scoring import response_entropy
 from .spec import PipelineSpec, build_from_spec
 
 
+def _pipe_cost(pipe) -> float:
+    """Best-effort cumulative $ spend behind a pipeline's predictor (0 if none).
+
+    Sees through the post-stratification wrapper to its base predictor's client,
+    mirroring scrye.experiment.pipeline_model."""
+    pred = pipe.predictor
+    client = getattr(pred, "client", None) or getattr(getattr(pred, "base", None), "client", None)
+    usage = getattr(client, "usage", None)
+    return float(getattr(usage, "cost_usd", 0.0)) if usage is not None else 0.0
+
+
 def make_score_fn(normalizers, *, client=None, max_workers: int = 8):
     """Build the production score_fn: (spec, records) -> (mean_score, breakdown)."""
 
     def score_fn(spec: PipelineSpec, records: Sequence) -> tuple[float, dict]:
         pipe = build_from_spec(spec, client=client)
+        before = _pipe_cost(pipe)
         df = evaluate(pipe, records, normalizers=normalizers,
                       max_workers=max_workers, progress=False)
+        cost = _pipe_cost(pipe) - before  # new OpenRouter spend for this scoring call
         mean = float(df["score"].mean()) if len(df) else float("nan")
         # Entropy-binned breakdown (consensus vs diverse), the SimBench axis.
         bins = pd.cut(df["truth_entropy"], [0, 0.33, 0.66, 1.0], include_lowest=True)
         by_entropy = {str(k): float(v) for k, v in df.groupby(bins, observed=True)["score"].mean().items()}
-        return mean, {"by_entropy": by_entropy, "n": len(df)}
+        return mean, {"by_entropy": by_entropy, "n": len(df), "cost_usd": cost}
 
     return score_fn
 
@@ -1433,8 +1688,7 @@ def final_report(spec: PipelineSpec, test: Sequence, normalizers, ledger: Ledger
                  *, client=None) -> dict:
     """Score the frozen spec ONCE on test; report raw mean, CI, and K-band."""
     pipe = build_from_spec(spec, client=client)
-    df = evaluate(pipe, test, normalizers=normalizers, progress=False, client=client) \
-        if False else evaluate(pipe, test, normalizers=normalizers, progress=False)
+    df = evaluate(pipe, test, normalizers=normalizers, progress=False)
     summ = summarize(df)
     k = ledger.global_k()
     lo, hi = k_corrected_band(summ["mean_score"], n=len(df), k=k)
@@ -1448,10 +1702,9 @@ def final_report(spec: PipelineSpec, test: Sequence, normalizers, ledger: Ledger
         "global_k": k,
         "k_band_low": lo,
         "k_band_high": hi,
+        "total_cost_usd": ledger.total_cost(),
     }
 ```
-
-Note: the `if False else` guard above is a leftover — simplify the `df = ...` line to just `df = evaluate(pipe, test, normalizers=normalizers, progress=False)` when implementing.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1467,7 +1720,7 @@ git commit -m "feat: add K-corrected reporting and production score_fn"
 
 ---
 
-### Task 8: Tree renderer + full-loop integration test
+### Task 9: Tree renderer + full-loop integration test
 
 **Files:**
 - Create: `src/scrye/tree_view.py`
@@ -1547,8 +1800,9 @@ def test_full_loop_offline(tmp_path):
 
     def score_fn(spec, recs):
         # dev and val both improve as levers stack, so both are promoted+accepted.
+        # Each scoring call reports $1 of new spend, so each step costs $2 (dev+val).
         depth = len(spec.lever_path)
-        return (20.0 + 5 * depth, {"by_entropy": {}})
+        return (20.0 + 5 * depth, {"by_entropy": {}, "cost_usd": 1.0})
 
     out = run_search(
         contract, led, dev=["dev"], val=["val"], score_fn=score_fn,
@@ -1557,12 +1811,14 @@ def test_full_loop_offline(tmp_path):
     assert out.stop_reason == "proposer_done"
     assert led.global_k() == 2
     assert out.final_spec.lever_path == ["recalib.global_temp", "recalib.dirichlet"]
+    assert abs(led.total_cost() - 4.0) < 1e-9  # two steps × (dev $1 + val $1)
 
     # Report on a held-out "test" set with the uniform predictor (no network).
     recs = [_rec(["A", "B"], {"A": 0.7, "B": 0.3})]
     norms = build_normalizers(recs)
     rep = final_report(PipelineSpec(predictor="uniform"), recs, norms, led)
     assert rep["global_k"] == 2  # report reads K from the ledger, not the run
+    assert abs(rep["total_cost_usd"] - 4.0) < 1e-9  # spend carried through to the report
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1595,7 +1851,8 @@ def _mark(node: ExperimentNode) -> str:
 
 def _fmt(node: ExperimentNode) -> str:
     val = "" if node.val_score is None else f" val={node.val_score:.2f}"
-    return f"{_mark(node)} {node.lever_id} (dev={node.dev_score:.2f}{val})"
+    cost = f" ${node.cost_usd:.2f}" if node.cost_usd else ""
+    return f"{_mark(node)} {node.lever_id} (dev={node.dev_score:.2f}{val}){cost}"
 
 
 def tree_lines(ledger: Ledger, depth: int = 0, parent_id: str | None = None) -> list[str]:
@@ -1629,7 +1886,8 @@ git commit -m "feat: add experiment-tree renderer + offline integration test"
 
 - **The notebook wiring** (a cell that builds a 3-way split via `make_split(fractions={"dev":..,"val":..,"test":..})`, a `make_score_fn(normalizers)`, an interactive `propose_fn` driven by you/Claude, and `tree_lines(ledger)` to view progress) is assembled in `notebooks/01_experiments.ipynb` after these modules land. It is not a coded task here because it is exploratory and network-bound; the modules above are everything it needs.
 - **η in production:** call `bootstrap_eta(reference_val_scores, mult=...)` once on a baseline pipeline's per-record val scores, then pass the result as `SearchContract.eta`. Start `mult` conservative (favor false rejects).
-- **Resuming a branch:** `Ledger.load(path)`, pick a `node_id`, rebuild its spec by replaying `path_to_root(node_id)`'s lever ids from a base `PipelineSpec` via `apply_lever`, and pass it as `start_spec`. Because `run_search` seeds the Ladder from `ledger.best_val()`/`ledger.global_k()`, global K survives the resume.
+- **Resuming a branch:** `Ledger.load(path)`, pick a `node_id`, rebuild its spec by replaying `path_to_root(node_id)`'s lever ids from a base `PipelineSpec` via `apply_lever`, and pass it as `start_spec`. Because `run_search` seeds the Ladder from `ledger.best_val()`/`ledger.global_k()` **and `cum_cost` from `ledger.total_cost()`**, both global K and cumulative spend survive the resume — the $1000 cap is enforced across resumed branches, not per-run.
+- **Cost in production:** pass a single shared `client` into `make_score_fn(normalizers, client=client)` so the `usage.cost_usd` delta isolates each experiment's spend; with no shared client a fresh one is built per call and the delta still equals that call's spend. Seed `MODEL_PRICES` for any model `model.swap` may select, so the fallback estimate is meaningful when a response lacks native `usage.cost`. Watch the live total with `ledger.total_cost()`.
 
 ---
 
@@ -1640,10 +1898,11 @@ git commit -m "feat: add experiment-tree renderer + offline integration test"
 - §3 lever registry (pre-registered, frozen, metadata) → Task 3. ✓ (v1 subset documented; `elicit.verbalized`/`ensemble.paraphrase` explicitly deferred.)
 - §4 goal/scope contract + gate policy + non-disableable off-registry gate → Task 6. ✓
 - §5 Ladder gate + data-derived η + global-K accounting → Task 4 (gate/η) + Task 5 (`global_k`) + Task 6 (wiring). ✓
-- §6 experiment-tree ledger (node schema, resume, free dev replay, persistence, viz) → Task 5 + Task 8 renderer + resume note. ✓
-- §7 reporting (test-once, K-corrected band, ceiling normalization) → Task 7. Ceiling-normalization reuses the existing reliability-ceiling helper from the gameplan harness; `final_report` exposes raw mean + CI + K-band, and ceiling normalization is applied at the notebook layer where the ceiling normalizers live. ✓
-- §9 open parameters → surfaced as `mult`, `eta`, budgets — all injectable. ✓
+- §6 experiment-tree ledger (node schema incl. cost, resume, free dev replay, persistence, viz) → Task 5 + Task 9 renderer + resume note. ✓
+- §7 reporting (test-once, K-corrected band, ceiling normalization, cost summary) → Task 8. Ceiling-normalization reuses the existing reliability-ceiling helper from the gameplan harness; `final_report` exposes raw mean + CI + K-band + `total_cost_usd`, and ceiling normalization is applied at the notebook layer where the ceiling normalizers live. ✓
+- §9 compute & cost model (who-pays boundary, per-experiment cost, $1000 cap) → Task 7 (capture) + Task 5 (node cost fields) + Task 6 (cap enforcement + frac gate) + Task 8 (score_fn cost + report total). ✓
+- §10 open parameters → surfaced as `mult`, `eta`, budgets, `cost_cap_usd`, price table — all injectable. ✓
 
-**Placeholder scan:** one intentional leftover flagged inline in Task 7 (`if False else`) with a fix instruction; no TBD/TODO elsewhere. All test and impl steps carry complete code.
+**Placeholder scan:** no TBD/TODO; the prior `if False else` leftover in `final_report` is now written in final form. All test and impl steps carry complete code.
 
-**Type consistency:** `score_fn` signature `(PipelineSpec, Sequence) -> (float, dict)` is identical in Task 6 (consumer), Task 7 (`make_score_fn`), and both Task 8 tests. `apply_lever(spec, lever_id, params)` matches across Tasks 3/6. `ExperimentNode` field set is identical in Tasks 5/6/7/8. `config_hash() -> str` (Task 1) is used as the cache key in Tasks 5/6. `LadderGate.consider` returns the accept bool used in Task 6. Consistent.
+**Type consistency:** `score_fn` signature `(PipelineSpec, Sequence) -> (float, dict)` is identical in Task 6 (consumer), Task 8 (`make_score_fn`), and both Task 9 tests; the breakdown dict's `"cost_usd"` key is written by Task 8 and read by Task 6 via `.get("cost_usd", 0.0)`. `apply_lever(spec, lever_id, params)` matches across Tasks 3/6. `ExperimentNode` field set (incl. trailing `cost_usd`/`cum_cost_usd` defaults) is identical in Tasks 5/6/9. `config_hash() -> str` (Task 1) is the cache key in Tasks 5/6. `LadderGate.consider` returns the accept bool used in Task 6. `cost_of_record`/`estimate_cost`/`price_for` (Task 7) are consumed only inside `LLMClient`. Consistent.
