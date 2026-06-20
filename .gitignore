@@ -20,3 +20,7 @@ runs/
 
 # OS
 .DS_Store
+
+# Editor / agent local dirs
+.claude/
+.vscode/

@@ -1,7 +1,8 @@
 # Scrye Mini-Project — Gameplan & Direction Map
 
-**Date:** 2026-06-10 · **Status:** First brainstorm — options document, not a converged spec
+**Date:** 2026-06-10 (research-grounded 2026-06-13) · **Status:** First brainstorm — options document, not a converged spec
 **Recommended spine:** Approach A (calibrated simulator), with other directions preserved as live options, ablations, or framed extensions.
+**Research grounding:** sharpened against [`research_overview.md`](../../research_overview.md) (SimBench + the wider behavioral-simulation literature). Key incorporations flagged inline as **[R]**.
 
 ---
 
@@ -26,12 +27,14 @@ Two parts, two weeks (clock running):
 
 - **Paper:** Hu et al., arXiv 2510.17516; dataset HF `pitehu/SimBench` (CC-BY-NC-SA-4.0).
 - **Score:** S = 100·(1 − TVD(P,Q)/TVD(P,U)), U = uniform. **Naive baseline (uniform) = 0 by construction** — trivially beatable; the real bar is strong zero-shot (~35–41; best Claude-3.7-Sonnet **40.8**).
+  - **[R] The uniform denominator is the field's *weaker* normalizer.** It measures skill-above-chance, not skill-against-the-achievable. The principled denominator is **human reliability** — the test–retest / finite-sample-noise ceiling on what *any* predictor could hit (the Park & Kinzinger logic). We re-normalize against it (→ §6.F); this is our signature construct-validity move, not a cosmetic metric swap.
 - **Splits:** Pop (7,167 cases, 20 source datasets) and Grouped (6,343 cases, 5 surveys; conditioning = country × one attribute, natural-language prompts). **No train/dev split** — holdout discipline is ours to construct. Ground-truth distributions are public → the leakage protocol is ours to own and document.
 - **Findings we build on:**
   - Verbalized distributions ≫ first-token logprobs for instruct models (settles elicitation).
   - CoT/reasoning budget does not help (slightly hurts) — saves money, prunes a direction.
-  - **Diagnosed failure mode: mode-seeking.** Instruct models win on low-entropy consensus questions, lose on high-entropy diverse ones (r = −0.94 between IT benefit and response entropy).
-  - Grouped conditioning degrades scores (ΔS ≈ −1.3 to −4.6), worst for religiosity/political-ideology.
+  - **Diagnosed failure mode: mode-seeking.** Instruct models win on low-entropy consensus questions, lose on high-entropy diverse ones (r = −0.94 between IT benefit and response entropy). **[R] Mechanism (RL-as-inference):** pretraining minimizes *mass-covering* KL (covers all human modes); RLHF minimizes *mode-seeking* KL (collapses onto the single "best" mode). So recalibration is a treatment for a **named, mechanistic** failure — and a *less-aligned/base* model is a distinct lever, not just a weaker model (→ base-vs-instruct ablation, §6.F).
+  - **[R] This unifies the field's headline failures** — magnitude inflation, diversity collapse, and the attitude→behavior gap are facets of one thing: **miscalibration** from mode-seeking. Framing the whole project as *calibration* (not a better prompt) is the defensible spine.
+  - Grouped conditioning degrades scores (ΔS ≈ −1.3 to −4.6), worst for religiosity/political-ideology — **[R] benchmark-level evidence that naive persona conditioning is net-negative**, which is why our conditioning enters as a *shift* (delta modeling, §5.B), not a "be this person" prompt.
 - All three required questions confirmed present, with 67–91 grouped variants each — enough for real per-question counterfactual analysis.
 
 ## 4. Strategic read
@@ -39,7 +42,7 @@ Two parts, two weeks (clock running):
 1. **This is the case-study stage the interview-prep thesis anticipated.** Part II's scenario (revealed transactions vs. stated surveys) is the attitudes-vs-behavior evidence map restated as a design exercise. The prep-doc architecture (tiered confidence, calibration layer, reliability ceiling, honest no-flywheel multi-tenancy) can be deployed nearly verbatim.
 2. **The self-designed counterfactual metric is an open invitation** to do construct-validity work — the signature differentiator.
 3. **The hollow-demo trap is the central risk.** The winning shape: one or two well-chosen ideas with airtight ablations and an honest, roadmap-shaped limitations section — not a kitchen sink.
-4. **A cheap model beating frontier zero-shot via method** would itself dramatize the model-as-commodity thesis — and with OpenRouter the cross-model ablation that proves "tier barely moves the result" costs a single config sweep. Lead the empirical section with: *the method, not the model, carries the gain.*
+4. **A cheap model beating frontier zero-shot via method** is the empirical headline — but **[R] state the claim precisely.** SimBench shows model choice is *not* a pure commodity (40-point spread across 45 models; simulation ability correlates with MMLU-Pro at r=0.94), so "all models are equal" is false and an evaluator will know it. The defensible, true claim is **method-portability**: *the recalibration gain is roughly model-invariant even though raw zero-shot tracks capability.* Lead with *the method, not the model, carries the **gain*** — and let the cross-model sweep (cheap via OpenRouter) prove portability rather than equivalence. Post-training *type* (base vs. instruct) is itself a lever, not noise (§6.F).
 
 ## 5. The direction space (divergent map)
 
@@ -80,12 +83,13 @@ Families are composable; any spine draws from several.
 Highest effort, least distinctive, worst hour-fit. **Listed to argue against**; appears in Part II as the far end of the spectrum and in the roadmap.
 
 ### F. Measurement & evaluation — the signature layer (in every variant)
-- **Self-designed counterfactual sensitivity score:** compare predicted vs. true *delta vectors* (segment minus population) — directional agreement + magnitude correlation; ordinal-aware where scales are ordered.
-- **Reliability-ceiling normalization:** ground-truth distributions are finite-sample estimates (group_size is published). Bootstrap the sampling noise to get a per-question ceiling on achievable S; report normalized scores. The Park/Kinzinger test-retest logic applied to this benchmark — no other candidate will do this.
+- **Self-designed counterfactual sensitivity score:** compare predicted vs. true *delta vectors* (segment minus population) — directional agreement + magnitude correlation; ordinal-aware where scales are ordered. **[R] Report the two components separately, on purpose:** the literature is convergent that simulators recover *sign/rank-order* well but *inflate magnitude* (Park r=0.91–0.99 with inflated effects; Bisbee ~7× polarization; the 156-experiment replication, 2–3× effect sizes). So directional agreement is the high-confidence number to lead with, and a magnitude gap is the *expected, named* failure to surface honestly — not a surprise to bury.
+- **Reliability-ceiling normalization (the signature metric — [R] elevated):** ground-truth distributions are finite-sample estimates (group_size is published). Bootstrap the sampling noise to get a **per-question human-reliability ceiling** on the achievable S, and report scores *normalized against that ceiling* — not against SimBench's uniform baseline. This swaps the field's weaker "skill-above-chance" denominator for the principled "skill-against-the-achievable" denominator (Park's test–retest, Kinzinger's reliability floor). It is the construct-validity move no other candidate will make, it reframes a "low" 40.8 as possibly *near-ceiling* on high-entropy items, and it is the literal center of how this field evaluates itself. Report both (raw S for comparability, ceiling-normalized S as the honest headline).
 - **Error decomposition:** accuracy (TVD) / rank-order / dispersion per prediction.
 - **Holdout discipline:** dev/eval split by source dataset family; all tuning on dev only; documented leakage protocol.
 - **Uncertainty:** bootstrap CIs on all scores; stratified evaluation subsample (~300–500 Pop + ~300–500 Grouped cases incl. all required-question variants). With the lifted budget, this can grow toward the full splits if CI width on the headline comparison is too wide to call.
-- **Cross-model invariance ablation (now cheap via OpenRouter):** run the final pipeline across 4–6 model families (e.g., Gemini Flash, Qwen-2.5, DeepSeek, Claude Haiku, GPT-4.1-mini) behind the same gateway. Hypothesis from the paper: the *recalibration* gain is roughly model-invariant while raw zero-shot tracks model tier. Confirming this both validates the method's portability and dramatizes the commodity-model thesis — a high-value, low-effort ablation the single-provider setup makes trivial.
+- **Cross-model portability ablation (now cheap via OpenRouter):** run the final pipeline across 4–6 model families (e.g., Gemini Flash, Qwen-2.5, DeepSeek, Claude Haiku, GPT-4.1-mini) behind the same gateway. Hypothesis: the *recalibration* gain is roughly model-invariant while raw zero-shot tracks capability. Confirming this validates **portability** (not equivalence — see §4.4) — a high-value, low-effort ablation the single-provider setup makes trivial.
+  - **[R] Add a base-vs-instruct pair** (e.g., an open-weights model available in both forms, like Qwen-2.5 base vs. instruct). The alignment–simulation tradeoff predicts the *base/less-aligned* model is the better simulator on high-entropy items (mass-covering > mode-seeking), and may need *less* recalibration. If it holds on these three required questions, it's a striking, mechanism-grounded result: post-training *type*, not just tier, governs simulation fidelity — and it sharpens what "the model is swappable" actually means.
 
 ## 6. Candidate spines
 
@@ -96,7 +100,7 @@ Verbalized elicitation (small paraphrase ensemble) → entropy-aware recalibrati
 
 ### Approach B — Silicon post-stratification (persona Monte Carlo)
 Persona pool (Nemotron/census-derived) → per-persona answers → post-stratified aggregation; segments = reweighting the same pool.
-**Fit:** higher novelty, natural dispersion, coherent conditioning by construction. **Risk:** 20–50× API calls; literature says personalization signal is modest in the attitude regime; persona quality is an uncontrolled confound. Honest estimate: 15–25 hours done properly. **Role:** limitations/roadmap — the natural next architecture, connecting to the agent tier of the prep-doc stack.
+**Fit:** higher novelty, natural dispersion, coherent conditioning by construction. **Risk:** 20–50× API calls; **[R]** the personalization signal is **modest-to-negative** in the attitude regime (SimBench: explicit demographic conditioning *degrades* group-level scores); persona quality is an uncontrolled confound. Honest estimate: 15–25 hours done properly. **Role:** limitations/roadmap — the natural next architecture, connecting to the agent tier of the prep-doc stack. **[R] The stronger long-run framing** (research_overview.md, H4) is persona/control vectors as a *validity probe* — detecting when an agent collapses toward a stereotype prior — rather than as the conditioning engine; carry that into the roadmap, not the spine.
 
 ### Approach C — Retrieval-anchored prediction
 Nearest-neighbor survey items + their distributions as few-shot anchors, leave-family-out.
@@ -106,14 +110,14 @@ Nearest-neighbor survey items + their distributions as few-shot anchors, leave-f
 
 - **Compounding memory:** tiered — raw outcome/event store → segment-level posterior store → cached calibrators/classifiers per tenant. What's stored: outcomes keyed to predictions made (prediction ledger), enabling honest backtesting.
 - **Method spectrum:** retrieval/ICL (cold, low data) → cached per-tenant calibration layers (warm) → per-tenant adapters/fine-tunes (hot, only past data-volume and stability gates). Gate transitions by data volume, drift, and measured lift on holdout.
-- **Revealed vs. stated:** different epistemic classes. Revealed behavior = calibration labels and ground truth for the prediction ledger; stated responses = persona priors and cold-start conditioning. Never average them; route them. (The evidence-map thesis, operationalized.)
+- **Revealed vs. stated:** different epistemic classes. Revealed behavior = calibration labels and ground truth for the prediction ledger; stated responses = persona priors and cold-start conditioning. Never average them; route them. (The evidence-map thesis, operationalized.) **[R] Why this is non-negotiable, not stylistic:** SimBench now confirms across 20 datasets that *behavioral-choice* tasks are systematically harder than attitude tasks (the "value–action gap"; Park's economic games ~0.66 n.s. vs. attitudes ~0.83). So the revealed-transaction signal is simultaneously the **more valuable** (it's what the client buys — what people *do*) and the **harder to predict** stream. That asymmetry is exactly why it must be the ground-truth label feeding the ledger and the calibrators — and why a stated-survey prior must never be allowed to stand in for it.
 - **Multi-tenancy:** the honest position — per-tenant data improves per-tenant predictions; share *structure* (calibrators' functional form, harness, ontology), not data. No cross-customer flywheel claimed.
 - **Guardrails:** champion/challenger shadow evaluation; updates ship only on held-out lift; drift monitors on input and outcome distributions; the reliability ceiling as the hard stopping condition for tuning.
 
 ## 8. Infrastructure sketch (brief, per the brief's ask)
 
 - **Compute:** laptop + hosted APIs via OpenRouter. No GPUs needed at this scale; state the scale-up path (vLLM on reserved instances for open-weights bulk inference once per-tenant volume justifies it) and the on-demand-vs-reserved tradeoff.
-- **Models:** **OpenRouter as the single provider-agnostic gateway** (OpenAI-compatible API, key in `.env`). One client, one request schema, every vendor reachable by changing the `model` string — so the architecture is swappable-by-design by construction, and the cross-model ablation is a config sweep rather than N integrations. This is also the honest Part II answer to vendor lock-in: the gateway is the abstraction boundary that keeps the model a commodity. Note the tradeoff for the writeup: OpenRouter adds a small latency/markup and a third-party dependency; at production scale a tenant with steady volume would pin specific providers or self-host open-weights behind the same interface.
+- **Models:** **OpenRouter as the single provider-agnostic gateway** (OpenAI-compatible API, key in `.env`). One client, one request schema, every vendor reachable by changing the `model` string — so the architecture is swappable-by-design by construction, and the cross-model ablation is a config sweep rather than N integrations. This is also the honest Part II answer to vendor lock-in: the gateway is the abstraction boundary that keeps the model *swappable* (which is the true, defensible claim — not that all models are interchangeable; see §4.4). Note the tradeoff for the writeup: OpenRouter adds a small latency/markup and a third-party dependency; at production scale a tenant with steady volume would pin specific providers or self-host open-weights behind the same interface.
 - **Data:** SimBench CSVs → parquet locally; deterministic seeded subsampling; cached raw model outputs (JSONL) so recalibration/ablation reruns are free.
 - **Experiment tracking:** config-hashed run directories + a results table (or lightweight W&B); every figure regenerable from cached outputs.
 
