@@ -10,12 +10,16 @@ from __future__ import annotations
 import pandas as pd
 
 from scrye.data import SimBenchRecord
+from scrye.distributions import SegmentWeights
 from scrye.experiment import (
     PREDICTOR_REGISTRY,
     build_pipeline,
     compare,
+    pipeline_model,
+    post_strat_pipeline,
     resolve_model,
 )
+from scrye.predict import UniformPredictor
 
 
 def _rec(ds: str, template: str, segment: dict | None = None) -> SimBenchRecord:
@@ -40,6 +44,40 @@ def test_resolve_model_key_and_passthrough():
 
 def test_registry_has_baselines():
     assert {"zero_shot", "uniform"} <= set(PREDICTOR_REGISTRY)
+
+
+def test_registry_has_persona_strategies():
+    # every conditioning style is selectable by name as a simulation system
+    for style in ("simbench_faithful", "representative_sample",
+                  "persona_embodiment", "anti_flattening", "contextualized"):
+        assert style in PREDICTOR_REGISTRY
+
+
+class _FakeClient:
+    """A stand-in client (no network) carrying just a model id."""
+
+    def __init__(self, model="vendor/fake"):
+        self.model = model
+
+
+def test_post_strat_pipeline_uses_offline_base_and_decomposes():
+    # build with a fake client (no API key), then swap in a uniform base
+    marginal = _rec("DS", "Q1?", {"cntry": "Finland"})
+    male = _rec("DS", "Q1?", {"cntry": "Finland", "gndr": "male"})
+    female = _rec("DS", "Q1?", {"cntry": "Finland", "gndr": "female"})
+    weights = SegmentWeights([marginal, male, female])
+    pipe = post_strat_pipeline(weights, client=_FakeClient(), strategy="simbench_faithful")
+    pipe.predictor.base = UniformPredictor()  # offline base, no network
+    out = pipe.predict(marginal)
+    assert abs(sum(out.values()) - 1.0) < 1e-9
+    assert pipe.predictor.n_decomposed == 1
+
+
+def test_pipeline_model_sees_through_post_strat():
+    weights = SegmentWeights([])
+    pipe = post_strat_pipeline(weights, client=_FakeClient("vendor/fake"))
+    # pipeline_model reaches the base predictor's client through the wrapper
+    assert pipeline_model(pipe) == "vendor/fake"
 
 
 def test_build_pipeline_uniform_needs_no_client():

@@ -14,7 +14,9 @@ import re
 from abc import ABC, abstractmethod
 
 from .data import SimBenchRecord
+from .distributions import SegmentWeights
 from .llm import LLMClient
+from .persona import DEFAULT_STRATEGY, PromptStrategy, get_strategy
 
 
 class Predictor(ABC):
@@ -58,7 +60,7 @@ def _extract_json_object(text: str) -> dict | None:
 
 
 class ZeroShotPredictor(Predictor):
-    """Verbalized-distribution zero-shot baseline (the project default).
+    """Verbalized-distribution zero-shot predictor (the project default).
 
     Prompts the model to state a probability for each answer option and parses
     the JSON. Robust by construction: unparseable or empty responses fall back
@@ -66,29 +68,28 @@ class ZeroShotPredictor(Predictor):
     bad generation never crashes a batch. The SimBench paper establishes that
     verbalized distributions beat first-token logprobs for instruct models,
     which is why this is the baseline elicitation.
+
+    The conditioning prompt is supplied by a swappable
+    :class:`~scrye.persona.PromptStrategy` (default ``simbench_faithful``, which
+    reproduces the original baseline prompt byte-for-byte). Pass a different
+    strategy name to ablate demographic-conditioning styles.
     """
 
-    def __init__(self, client: LLMClient, name: str = "zero_shot") -> None:
+    def __init__(
+        self,
+        client: LLMClient,
+        name: str = "zero_shot",
+        strategy: str | PromptStrategy = DEFAULT_STRATEGY,
+    ) -> None:
         self.client = client
         self.name = name
+        self.strategy = (
+            strategy if isinstance(strategy, PromptStrategy) else get_strategy(strategy)
+        )
         self.n_parse_failures = 0
 
-    def _build_prompt(self, record: SimBenchRecord) -> str:
-        opts = ", ".join(record.options)
-        persona = record.group_prompt.strip()
-        persona_block = f"{persona}\n\n" if persona else ""
-        return (
-            f"{persona_block}{record.input_template.strip()}\n\n"
-            "Estimate how a large, representative sample of such people would "
-            "answer. Give the probability (between 0 and 1) that a randomly "
-            "sampled person chooses each option.\n"
-            f"Respond with ONLY a JSON object mapping each option label "
-            f"[{opts}] to its probability. The probabilities must sum to 1. "
-            "No other text."
-        )
-
     def predict(self, record: SimBenchRecord) -> dict[str, float]:
-        text = self.client.prompt(self._build_prompt(record))
+        text = self.client.complete(self.strategy.build_messages(record)).text
         parsed = _extract_json_object(text)
         if not parsed:
             self.n_parse_failures += 1
@@ -115,3 +116,58 @@ class UniformPredictor(Predictor):
 
     def predict(self, record: SimBenchRecord) -> dict[str, float]:
         return _uniform(record)
+
+
+class PostStratificationPredictor(Predictor):
+    """Combine subgroup predictions into a coarser estimate by reweighting.
+
+    Instead of predicting a coarse target (e.g. a country marginal) directly,
+    decompose it into finer demographic cells via :class:`SegmentWeights`,
+    predict each cell with a `base` predictor, and average the cell predictions
+    weighted by each cell's population share (``group_size``).
+
+    Motivation: SimBench shows direct demographic conditioning often *hurts*, so
+    decompose-then-recombine is a candidate that exploits real population
+    structure instead. When a record has no available decomposition (no child
+    cells in the data), it falls back to the base predictor on the record
+    itself, so this drops into any pipeline unchanged.
+
+    `over` optionally pins the decomposition variable (e.g. ``"gender"``);
+    otherwise the variable with the most respondent coverage is chosen.
+    `min_children` is the smallest decomposition worth taking. The counters
+    `n_decomposed` / `n_fallback` record how often each path was used.
+    """
+
+    def __init__(
+        self,
+        base: Predictor,
+        weights: SegmentWeights,
+        over: str | None = None,
+        name: str = "post_strat",
+        min_children: int = 2,
+    ) -> None:
+        self.base = base
+        self.weights = weights
+        self.over = over
+        self.name = name
+        self.min_children = min_children
+        self.n_decomposed = 0
+        self.n_fallback = 0
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        children = self.weights.children(record, over=self.over)
+        if len(children) < self.min_children:
+            self.n_fallback += 1
+            return self.base.predict(record)
+
+        self.n_decomposed += 1
+        agg = {opt: 0.0 for opt in record.options}
+        for weight, child in children:
+            pred = self.base.predict(child)
+            for opt in record.options:
+                agg[opt] += weight * float(pred.get(opt, 0.0))
+
+        total = sum(agg.values())
+        if total <= 0:
+            return _uniform(record)
+        return {opt: value / total for opt, value in agg.items()}

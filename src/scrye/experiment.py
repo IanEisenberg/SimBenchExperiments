@@ -40,10 +40,17 @@ import pandas as pd
 from .calibrate import Calibrator
 from .config import DEFAULT_MODEL, OPENROUTER_MODELS
 from .data import SimBenchRecord
+from .distributions import SegmentWeights
 from .evaluate import counterfactual_sensitivity, evaluate, summarize
 from .llm import LLMClient
+from .persona import STRATEGIES
 from .pipeline import Pipeline
-from .predict import Predictor, UniformPredictor, ZeroShotPredictor
+from .predict import (
+    PostStratificationPredictor,
+    Predictor,
+    UniformPredictor,
+    ZeroShotPredictor,
+)
 
 
 # -- model selection -------------------------------------------------------
@@ -70,6 +77,19 @@ PREDICTOR_REGISTRY: dict[str, Callable[[ClientThunk], Predictor]] = {
     "zero_shot": lambda get_client: ZeroShotPredictor(get_client()),
     "uniform": lambda get_client: UniformPredictor(),
 }
+
+
+def _strategy_factory(strategy_name: str) -> Callable[[ClientThunk], Predictor]:
+    return lambda get_client: ZeroShotPredictor(
+        get_client(), name=strategy_name, strategy=strategy_name
+    )
+
+
+# Each persona-conditioning style (scrye.persona.STRATEGIES) becomes a selectable
+# simulation system: a zero-shot predictor with that demographic-conditioning
+# PromptStrategy. Lets the notebook ablate conditioning styles by name.
+for _sname in STRATEGIES:
+    PREDICTOR_REGISTRY.setdefault(_sname, _strategy_factory(_sname))
 
 
 def build_pipeline(
@@ -112,10 +132,43 @@ def build_pipeline(
     return Pipeline(pred, calibrator)
 
 
+def post_strat_pipeline(
+    weights: SegmentWeights,
+    *,
+    model: str = DEFAULT_MODEL,
+    strategy: str = "simbench_faithful",
+    over: str | None = None,
+    calibrator: Calibrator | None = None,
+    client: LLMClient | None = None,
+    name: str | None = None,
+    **client_kwargs,
+) -> Pipeline:
+    """A post-stratification system: decompose a coarse target into finer cells,
+    predict each cell with a `strategy`-conditioned zero-shot base, and recombine
+    by population weight.
+
+    `weights` is a :class:`~scrye.distributions.SegmentWeights` built once from
+    the full data. `over` optionally pins the decomposition variable.
+    """
+    base = ZeroShotPredictor(
+        client or make_client(model, **client_kwargs), name=strategy, strategy=strategy
+    )
+    post = PostStratificationPredictor(
+        base, weights, over=over, name=name or f"post_strat({strategy})"
+    )
+    return Pipeline(post, calibrator)
+
+
 # -- introspection helpers -------------------------------------------------
 def pipeline_model(pipeline: Pipeline) -> str:
-    """Best-effort model id behind a pipeline's predictor ("-" if none)."""
-    client = getattr(pipeline.predictor, "client", None)
+    """Best-effort model id behind a pipeline's predictor ("-" if none).
+
+    Sees through the post-stratification wrapper to its base predictor's client.
+    """
+    pred = pipeline.predictor
+    client = getattr(pred, "client", None) or getattr(
+        getattr(pred, "base", None), "client", None
+    )
     return getattr(client, "model", "-")
 
 
