@@ -61,6 +61,8 @@ SIMBENCH_FILES = {
 # indicative as of 2026-06 and will drift; verify before a large run.
 OPENROUTER_MODELS = {
     "gemini-flash-lite": "google/gemini-2.5-flash-lite",   # ~$0.10 / $0.40
+    "gemini-3.1-flash-lite": "google/gemini-3.1-flash-lite",  # ~$0.25 / $1.50
+    "gemini-3.5-flash": "google/gemini-3.5-flash",         # ~$1.50 / $9.00
     "qwen-7b": "qwen/qwen-2.5-7b-instruct",                # ~$0.04 / $0.10
     "qwen-72b": "qwen/qwen-2.5-72b-instruct",              # ~$0.36 / $0.40
     "deepseek-chat": "deepseek/deepseek-chat-v3-0324",     # ~$0.20 / $0.77
@@ -83,6 +85,8 @@ REQUIRED_QUESTIONS = {
 # from OPENROUTER_MODELS; an unknown model estimates to $0 (native cost still wins).
 MODEL_PRICES: dict[str, tuple[float, float]] = {
     "google/gemini-2.5-flash-lite": (0.10, 0.40),
+    "google/gemini-3.1-flash-lite": (0.25, 1.50),
+    "google/gemini-3.5-flash": (1.50, 9.00),
     "qwen/qwen-2.5-7b-instruct": (0.04, 0.10),
     "qwen/qwen-2.5-72b-instruct": (0.36, 0.40),
     "deepseek/deepseek-chat-v3-0324": (0.20, 0.77),
