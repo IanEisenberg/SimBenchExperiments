@@ -77,3 +77,19 @@ REQUIRED_QUESTIONS = {
     "gay_rights": "free to live their own life",
     "internet_use": "use the internet",
 }
+
+# Per-model OpenRouter prices, USD per 1M tokens (prompt, completion). Used ONLY
+# as a fallback when a response omits native usage.cost. Seed the models the
+# search may swap in; an unknown model estimates to $0 (native cost still wins).
+MODEL_PRICES: dict[str, tuple[float, float]] = {
+    "google/gemini-2.0-flash-001": (0.10, 0.40),
+    "google/gemini-2.0-flash-lite-001": (0.075, 0.30),
+    "qwen/qwen-2.5-72b-instruct": (0.35, 0.40),
+    "deepseek/deepseek-chat": (0.38, 0.89),
+}
+
+
+def price_for(model: str, prices: dict[str, tuple[float, float]] | None = None) -> tuple[float, float]:
+    """(prompt, completion) $/Mtok for a model; (0.0, 0.0) if unknown."""
+    table = MODEL_PRICES if prices is None else prices
+    return table.get(model, (0.0, 0.0))

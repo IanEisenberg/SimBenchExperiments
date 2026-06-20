@@ -21,12 +21,28 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from .config import CACHE_DIR, OpenRouterConfig
+from .config import CACHE_DIR, OpenRouterConfig, price_for
 
 
 def _cache_key(payload: dict) -> str:
     blob = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
+
+
+def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str,
+                  prices: dict | None = None) -> float:
+    """USD cost from token counts and a per-Mtok price table."""
+    p_in, p_out = price_for(model, prices)
+    return prompt_tokens / 1e6 * p_in + completion_tokens / 1e6 * p_out
+
+
+def cost_of_record(record: dict, prices: dict | None = None) -> float:
+    """Prefer OpenRouter's native `cost`; else estimate from tokens."""
+    native = record.get("cost")
+    if native is not None:
+        return float(native)
+    return estimate_cost(record.get("prompt_tokens", 0), record.get("completion_tokens", 0),
+                         record.get("model", ""), prices)
 
 
 @dataclass
@@ -37,6 +53,7 @@ class Usage:
     cache_hits: int = 0
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    cost_usd: float = 0.0
 
     @property
     def total_tokens(self) -> int:
@@ -49,6 +66,7 @@ class Usage:
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total_tokens,
+            "cost_usd": self.cost_usd,
         }
 
 
@@ -153,14 +171,20 @@ class LLMClient:
                     text=hit.get("text", ""), model=self.model, cached=True, raw=hit
                 )
 
-        completion = self._client.chat.completions.create(**payload)
+        completion = self._client.chat.completions.create(
+            **payload, extra_body={"usage": {"include": True}}
+        )
         text = completion.choices[0].message.content or ""
         usage = getattr(completion, "usage", None)
+        native_cost = getattr(usage, "cost", None)
+        if native_cost is None and usage is not None:
+            native_cost = (getattr(usage, "model_extra", None) or {}).get("cost")
         record = {
             "text": text,
             "model": self.model,
             "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
             "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+            "cost": native_cost,  # may be None -> estimated below
             "params": {k: v for k, v in payload.items() if k != "messages"},
         }
 
@@ -168,6 +192,7 @@ class LLMClient:
             self.usage.calls += 1
             self.usage.prompt_tokens += record["prompt_tokens"]
             self.usage.completion_tokens += record["completion_tokens"]
+            self.usage.cost_usd += cost_of_record(record)  # new spend only
 
         if self.use_cache:
             self._write_cache(key, record)
