@@ -178,3 +178,41 @@ def plot_example_distributions(df: pd.DataFrame, n: int = 6, seed: int = 0) -> F
     fig.suptitle(f"Example predictions — {df.attrs.get('pipeline', '')}")
     fig.tight_layout()
     return fig
+
+
+def plot_system_comparison(
+    table: pd.DataFrame,
+    score_col: str = "mean_score",
+    label_col: str = "system",
+) -> Figure:
+    """Horizontal bar chart of a topline comparison table with 95% CIs.
+
+    Consumes the DataFrame returned by :func:`scrye.experiment.compare` (or
+    :func:`scrye.experiment.model_sweep`): one row per system, with
+    ``mean_score`` and ``ci_low``/``ci_high``. Systems are ordered by score so
+    the headline ranking reads top-to-bottom; the uniform baseline (S=0) is
+    marked for reference.
+    """
+    t = table.sort_values(score_col, ascending=True).reset_index(drop=True)
+    labels = t[label_col].astype(str).tolist()
+    y = np.arange(len(t))
+    fig = Figure(figsize=(7, 0.6 * len(t) + 1.6))
+    ax = fig.subplots()
+    means = t[score_col].to_numpy()
+    if {"ci_low", "ci_high"}.issubset(t.columns):
+        err = np.vstack([means - t["ci_low"].to_numpy(), t["ci_high"].to_numpy() - means])
+    else:
+        err = None
+    ax.barh(y, means, color="#4C72B0", alpha=0.85,
+            xerr=err, error_kw={"ecolor": "0.3", "capsize": 3})
+    ax.axvline(0, color="0.5", ls="--", lw=1, label="uniform baseline (S=0)")
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("mean SimBench score S  (95% CI)")
+    ax.set_title("System comparison")
+    for yi, m in zip(y, means):
+        ax.annotate(f"{m:.1f}", (m, yi), xytext=(3, 0),
+                    textcoords="offset points", va="center", fontsize=8)
+    ax.legend(loc="lower right", fontsize=8)
+    fig.tight_layout()
+    return fig
