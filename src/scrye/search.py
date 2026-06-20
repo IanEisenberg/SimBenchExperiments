@@ -86,12 +86,27 @@ def run_search(
     start_spec: PipelineSpec | None = None,
     client=None,
 ) -> SearchOutcome:
+    """Run the guarded search loop.
+
+    Cost cap note: the pre-step dollar guard projects the next step's spend using
+    the PREVIOUS step's actual spend (``state.last_step_cost``).  Because no prior
+    spend is known before the very first step, the first step is NEVER pre-blocked
+    by this guard.  Additionally, if a step costs more than the preceding step, it
+    can overshoot the cap by up to one step before the loop halts.  The cap is
+    therefore a SOFT ceiling.  Set ``gate_at_cost_frac < 1.0`` in the GatePolicy
+    for an earlier, mid-run pause before the hard cap is approached.
+    """
     spec = start_spec or PipelineSpec()
     # Reconstruct global state from the ledger so resuming never resets K/best.
     gate = LadderGate(eta=contract.eta, best=ledger.best_val(), k=ledger.global_k())
     state = SearchState(spec=spec, dev_best=float("-inf"),
                         val_best=ledger.best_val(), k_spent=ledger.global_k(),
                         cum_cost=ledger.total_cost())
+
+    # Initialize current_parent_id to the DAG node for the starting spec, so that
+    # siblings branching off the same base all share the correct parent.
+    anchor = ledger.by_config_hash(spec.config_hash())
+    current_parent_id: str | None = anchor.node_id if anchor is not None else None
 
     steps = 0
     dev_steps = 0
@@ -152,13 +167,18 @@ def run_search(
 
         node = ExperimentNode(
             node_id=ledger.next_node_id(), config_hash=chash,
-            parent_id=_last_node_id(ledger), lever_id=proposal.lever_id,
+            parent_id=current_parent_id, lever_id=proposal.lever_id,
             rationale=proposal.rationale, dev_score=dev_score, dev_breakdown=breakdown,
             val_score=val_score, eta=eta_used, accepted=accepted,
             global_k_at_query=k_at, timestamp=now_fn(),
             cost_usd=step_cost, cum_cost_usd=state.cum_cost,
         )
         ledger.append(node)
+        # Advance the DAG parent only when the step is accepted (spec advances).
+        # Rejected or dev-only steps must NOT change current_parent_id so that the
+        # next sibling proposal correctly shares the same base node as its parent.
+        if accepted:
+            current_parent_id = node.node_id
         state.history.append(node.node_id)
         steps += 1
 
@@ -183,5 +203,3 @@ def run_search(
     return SearchOutcome("autonomy_budget_reached", state.spec, steps)
 
 
-def _last_node_id(ledger: Ledger) -> str | None:
-    return ledger.nodes[-1].node_id if ledger.nodes else None
