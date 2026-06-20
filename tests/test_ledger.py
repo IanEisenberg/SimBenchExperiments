@@ -17,12 +17,14 @@ def _node(led, config_hash, parent=None, lever="recalib.global_temp",
 def test_append_and_load_roundtrip(tmp_path):
     p = tmp_path / "run.jsonl"
     led = Ledger(p)
-    n0 = _node(led, "hashA")
+    n0 = _node(led, "hashA", cost=3.0, cum=7.0)
     led.append(n0)
     reloaded = Ledger.load(p)
     assert len(reloaded.nodes) == 1
     assert reloaded.nodes[0].config_hash == "hashA"
     assert reloaded.by_id(n0.node_id).lever_id == "recalib.global_temp"
+    assert reloaded.nodes[0].cost_usd == 3.0
+    assert reloaded.nodes[0].cum_cost_usd == 7.0
 
 
 def test_by_config_hash_is_cache_lookup(tmp_path):

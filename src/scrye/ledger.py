@@ -14,7 +14,6 @@ a config_hash already queried returns its stored score and costs no new K.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
