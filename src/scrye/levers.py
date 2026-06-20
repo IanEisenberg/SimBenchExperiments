@@ -12,6 +12,9 @@ predictor swaps that, by parameter, cover the spec's `model.base_vs_instruct`
 and `condition.delta` cases. The spec's `elicit.verbalized` is already the
 default predictor; `ensemble.paraphrase` needs a new networked predictor and is
 deferred to a follow-up.
+
+The three recalibration levers apply FIXED hyperparameters supplied
+per-proposal; they do not auto-fit on dev in v1.
 """
 
 from __future__ import annotations

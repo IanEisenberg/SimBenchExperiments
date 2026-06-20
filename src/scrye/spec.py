@@ -43,7 +43,14 @@ class PipelineSpec:
 
 
 def build_from_spec(spec: PipelineSpec, *, client=None) -> Pipeline:
-    """Assemble a concrete Pipeline from a spec via the experiment registry."""
+    """Assemble a concrete Pipeline from a spec via the experiment registry.
+
+    Calibrators are constructed from the spec's fixed kwargs and are NOT
+    ``.fit()``-ed here.  v1 levers explore proposer-supplied hyperparameters
+    under the Ladder guard rather than auto-fitting on dev (a recorded v1
+    decision; auto dev-fit is a v2 option that would require threading fitted
+    state through the spec→pipeline lifecycle).
+    """
     cals = [make_calibrator(c["name"], **c.get("kwargs", {})) for c in spec.calibrators]
     if not cals:
         calibrator = None

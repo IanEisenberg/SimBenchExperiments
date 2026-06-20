@@ -14,6 +14,7 @@ production `score_fn` wraps `scrye.evaluate.evaluate`.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
@@ -96,6 +97,14 @@ def run_search(
     therefore a SOFT ceiling.  Set ``gate_at_cost_frac < 1.0`` in the GatePolicy
     for an earlier, mid-run pause before the hard cap is approached.
     """
+    if contract.eta <= 0.0:
+        warnings.warn(
+            "SearchContract.eta <= 0 disables the Ladder noise buffer (any improvement "
+            "is accepted). Set eta = bootstrap_eta(reference_val_scores, mult>=1) computed "
+            "BEFORE any val query for a valid overfitting guard.",
+            stacklevel=2,
+        )
+
     spec = start_spec or PipelineSpec()
     # Reconstruct global state from the ledger so resuming never resets K/best.
     gate = LadderGate(eta=contract.eta, best=ledger.best_val(), k=ledger.global_k())
@@ -159,7 +168,10 @@ def run_search(
             if accepted:
                 state.spec = new_spec
                 state.dev_best = dev_score
-                state.val_best = gate.best
+                # On a cache hit, gate.consider was NOT called so gate.best may be
+                # stale (below the cached candidate's val_score). Use the higher of
+                # the two so state.val_best never regresses.
+                state.val_best = max(gate.best, val_score)
 
         # Account the step's new spend before logging, so the node carries it.
         state.cum_cost += step_cost
