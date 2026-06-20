@@ -1,0 +1,32 @@
+# Experiment log (preregistration)
+
+This is the **human** layer of the experiment loop — the place we plan, discuss,
+and record experiments *before and after* running them. It sits on top of the
+machine artifacts (`outputs/ledger/<run>.jsonl`, `<run>.manifest.json`,
+`data/cache/`), which are the receipts; this folder is the plan and the story.
+
+One markdown file per **stage**. A stage is a batch of experiments sharing one
+hypothesis and one preregistered decision rule. Each file is written and
+approved *before* the run (so the decision rule is fixed before we see the
+data), then results are appended *after*.
+
+## The loop
+
+1. **Preregister** — draft `stage-NN-<name>.md`: hypothesis, configs to run,
+   data + budget, and the decision rule. Get sign-off. *(no val/test contact yet)*
+2. **Run + iterate** — execute on `dev`. Every LLM call caches to `data/cache/`,
+   so re-runs are free and deterministic. Iterate a few times as needed.
+3. **Record** — append the topline results, the run-file pointers, what we
+   learned, and what it implies for the next stage.
+4. **Next round** — preregister `stage-NN+1`, informed by the result.
+
+See the root `CLAUDE.md` → "Experiment workflow (preregistration)" for the rules
+this folder enforces.
+
+## Stages
+
+| Stage | Name | Status | Headline result |
+|---|---|---|---|
+| [01](stage-01-baseline.md) | Strategy baseline | PLANNED | — |
+
+_Statuses: PLANNED → RUNNING → DONE. Update this row when a stage closes._
