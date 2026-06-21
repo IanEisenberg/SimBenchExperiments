@@ -34,5 +34,7 @@ this folder enforces.
 | [05](stage-05-val-confirmation.md) | Val confirmation (first val touch) | DONE | CONFIRMED on held-out val: anti_flattening 53.0 vs faithful 47.0 (+6.0, clears noise, > dev gap). anti_flattening @ 3.1-flash-lite locked; test untouched |
 | [06](stage-06-calibration.md) | Calibration sweep | DONE | Negative: all 3 calibrators (TempScaling, EntropyTemp, Dirichlet) lose to identity; anti_flattening needs no post-hoc correction |
 | [07](stage-07-superforecaster.md) | Superforecaster prompting | DONE | Negative: outside-view / entropy-first / full superforecaster all lose to the no-CoT incumbent and cluster with generic CoT (~−2–3 grouped). 2nd negative on "make this model reason" — direct distributional ask beats elicited reasoning |
+| [08](stage-08-entropy-recalibration.md) | Entropy de-compression | DONE | Negative: +9.5 grouped oracle headroom (predictions are entropy-compressed, slope 0.48) is **not** recoverable from the prediction's own entropy; global temps hurt. Needs an external contestedness signal |
+| [09](stage-09-feature-entropy.md) | Feature-predicted entropy | DONE | Negative with mechanism: features predict truth-entropy (R²=0.58) but tempering still can't beat identity — the oracle's gain is **gated behind mode correctness** (+16.8 where top option right, −2.0 on the 39% where wrong). Spread entangled with location; post-hoc calibration closed |
 
 _Statuses: PLANNED → RUNNING → DONE. Update this row when a stage closes._
