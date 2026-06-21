@@ -30,5 +30,6 @@ this folder enforces.
 | [01](stage-01-baseline.md) | Strategy baseline | DONE | Better conditioning beats SimBench first-person baseline on grouped (+8 pts); anti_flattening most robust |
 | [02](stage-02-model-portability.md) | Model portability | DONE | gemini-3.1-flash-lite is a big step up (+12–17 grouped pts) and beats the 22×-pricier 3.5-flash; better model narrows the conditioning gap |
 | [03](stage-03-persona-mechanisms.md) | Persona mechanisms | DONE | Negative result: Monte-Carlo individuals (−15.7) and diversity-CoT (−3.1) both lose to the simple single-call framing; contextualized/anti_flattening stays best |
+| [04](stage-04-fulldev-confirmation.md) | Full-dev confirmation | RUNNING | — |
 
 _Statuses: PLANNED → RUNNING → DONE. Update this row when a stage closes._
