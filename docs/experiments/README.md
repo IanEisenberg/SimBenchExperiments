@@ -33,5 +33,6 @@ this folder enforces.
 | [04](stage-04-fulldev-confirmation.md) | Full-dev confirmation | DONE | At full dev (n=2566) anti_flattening beats faithful +2.81 (clears noise); contextualized within noise. Winner: anti_flattening @ 3.1-flash-lite |
 | [05](stage-05-val-confirmation.md) | Val confirmation (first val touch) | DONE | CONFIRMED on held-out val: anti_flattening 53.0 vs faithful 47.0 (+6.0, clears noise, > dev gap). anti_flattening @ 3.1-flash-lite locked; test untouched |
 | [06](stage-06-calibration.md) | Calibration sweep | DONE | Negative: all 3 calibrators (TempScaling, EntropyTemp, Dirichlet) lose to identity; anti_flattening needs no post-hoc correction |
+| [07](stage-07-superforecaster.md) | Superforecaster prompting | DONE | Negative: outside-view / entropy-first / full superforecaster all lose to the no-CoT incumbent and cluster with generic CoT (~−2–3 grouped). 2nd negative on "make this model reason" — direct distributional ask beats elicited reasoning |
 
 _Statuses: PLANNED → RUNNING → DONE. Update this row when a stage closes._

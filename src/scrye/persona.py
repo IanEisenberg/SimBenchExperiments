@@ -411,6 +411,123 @@ class DiversityElicitationStrategy(PromptStrategy):
                 {"role": "user", "content": user}]
 
 
+class OutsideViewStrategy(PromptStrategy):
+    """Superforecaster move: outside view first, then a modest adjustment.
+
+    Step 1 estimates the general-population base rate (which the model tends to
+    represent well); step 2 shifts it for the specific group only as much as the
+    demographic justifies. Isolates base-rate anchoring — the antidote to
+    SimBench's finding that demographic conditioning *degrades* group scores.
+    """
+
+    name = "outside_view"
+    SYSTEM = (
+        "You are an expert forecaster of survey responses. You always start from "
+        "the base rate — how the general population answers — and adjust only as "
+        "much as the specific group genuinely justifies, never over-reacting to a "
+        "group label."
+    )
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        user = (
+            f"Consider a large, representative sample of {who}{year_clause}.\n\n"
+            f"{record.input_template.strip()}\n\n"
+            "Forecast in two steps.\n"
+            "1. OUTSIDE VIEW: Ignoring this group's specific characteristics, "
+            "estimate how the general population answers this question — the base "
+            "rate.\n"
+            "2. ADJUST: Now adjust for this specific group — which way, and how "
+            "much, do their characteristics shift each option? Make only the "
+            "adjustments the group genuinely justifies; keep shifts modest unless "
+            "there is a strong reason.\n"
+            "Then give the group's final answer distribution.\n"
+            f"{_json_instruction(record.options)} "
+            "Write your reasoning first, then the JSON object LAST."
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": user}]
+
+
+class EntropyFirstStrategy(PromptStrategy):
+    """Superforecaster move: commit to the spread before the distribution.
+
+    Step 1 forces an explicit 1–5 "how divided is this group" rating; step 2
+    requires a distribution whose sharpness matches it. Isolates the
+    spread-before-numbers idea, directly targeting over-sharpening on the
+    high-entropy items SimBench shows LLMs handle worst (r = −0.942).
+    """
+
+    name = "entropy_first"
+    SYSTEM = (
+        "You are an expert forecaster of survey responses. You first judge how "
+        "divided a group is on a question, then give a distribution whose "
+        "sharpness matches that judgment — you never output a confident peak on a "
+        "question you judged contested."
+    )
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        user = (
+            f"Consider a large, representative sample of {who}{year_clause}.\n\n"
+            f"{record.input_template.strip()}\n\n"
+            "Forecast in two steps.\n"
+            "1. SPREAD: First rate how divided this group is on this question, on "
+            "a 1-5 scale: 1 = near-unanimous (one option dominates), 3 = leaning "
+            "but contested, 5 = evenly split across options. State the number.\n"
+            "2. DISTRIBUTION: Now give a distribution whose spread MATCHES your "
+            "rating — a low rating must be peaked, a high rating must be spread "
+            "out. Do not output a confident peak if you rated the question "
+            "contested.\n"
+            f"{_json_instruction(record.options)} "
+            "Write your reasoning first, then the JSON object LAST."
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": user}]
+
+
+class SuperforecasterStrategy(PromptStrategy):
+    """The full superforecaster pipeline: outside view → spread → adjust →
+    premortem → distribution.
+
+    Combines :class:`OutsideViewStrategy` (base-rate anchoring) and
+    :class:`EntropyFirstStrategy` (spread calibration) with a premortem step that
+    guards minority mass (counters flattening). The kitchen-sink contender — if
+    structured forecasting helps this model at all, this should show it.
+    """
+
+    name = "superforecaster"
+    SYSTEM = (
+        "You are a superforecaster estimating how a population subgroup answers a "
+        "survey. You reason in steps — outside view first, calibrate the spread, "
+        "adjust for the group, and check what you might be under-weighting — then "
+        "commit to numbers."
+    )
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        user = (
+            f"Consider a large, representative sample of {who}{year_clause}.\n\n"
+            f"{record.input_template.strip()}\n\n"
+            "Forecast like a superforecaster, in four steps.\n"
+            "1. OUTSIDE VIEW: Estimate the base rate — how the general population "
+            "answers, ignoring this group's specifics.\n"
+            "2. SPREAD: Rate how divided THIS group is on a 1-5 scale (1 = "
+            "near-unanimous, 5 = evenly split), given its real internal "
+            "diversity.\n"
+            "3. ADJUST: Shift the base rate for this group, only as much as its "
+            "characteristics justify.\n"
+            "4. PREMORTEM: Which option are you most likely UNDER-weighting? Keep "
+            "real probability mass on plausible minority views.\n"
+            "Then give the group's final distribution, consistent with all four "
+            "steps and with the spread you rated.\n"
+            f"{_json_instruction(record.options)} "
+            "Write your reasoning first, then the JSON object LAST."
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": user}]
+
+
 class IndividualStrategy(PromptStrategy):
     """Frame ONE specific, randomly drawn individual from the group.
 
@@ -532,6 +649,9 @@ STRATEGIES: dict[str, PromptStrategy] = {
         AntiFlatteningStrategy(),
         ContextualizedStrategy(),
         DiversityElicitationStrategy(),
+        OutsideViewStrategy(),
+        EntropyFirstStrategy(),
+        SuperforecasterStrategy(),
     )
 }
 

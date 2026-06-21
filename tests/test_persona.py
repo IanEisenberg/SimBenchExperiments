@@ -190,3 +190,62 @@ def test_sample_persona_skips_attributes_the_segment_already_pins():
     for s in range(12):
         descriptor = sample_persona(rec, s)
         assert not any(a in descriptor for a in age_clauses)
+
+
+# -- Stage 07: superforecaster strategies ----------------------------------
+def _user(name, rec):
+    return "\n".join(
+        m["content"] for m in get_strategy(name).build_messages(rec) if m["role"] == "user"
+    )
+
+
+def test_outside_view_registered_and_anchors_base_rate_first():
+    assert "outside_view" in STRATEGIES
+    rec = _rec({"cntry": "Finland"}, "The year is 2016. You are from Finland.")
+    messages = get_strategy("outside_view").build_messages(rec)
+    assert len(messages) == 2 and messages[0]["role"] == "system"
+    assert "base rate" in messages[0]["content"].lower()
+    user = messages[1]["content"]
+    # base-rate-first, then a modest adjustment for this group
+    assert "OUTSIDE VIEW" in user and "base rate" in user.lower()
+    assert "ADJUST" in user
+    # outside-view step precedes the adjust step
+    assert user.index("OUTSIDE VIEW") < user.index("ADJUST")
+    assert "from Finland" in user
+    assert "[A, B]" in user and "LAST" in user
+
+
+def test_entropy_first_registered_and_commits_spread_before_distribution():
+    assert "entropy_first" in STRATEGIES
+    rec = _rec({"cntry": "Finland"}, "The year is 2016. You are from Finland.")
+    user = _user("entropy_first", rec)
+    # an explicit 1-5 spread rating that the distribution must match
+    assert "1-5" in user or "1–5" in user
+    assert "divided" in user.lower()
+    assert "SPREAD" in user and "MATCH" in user.upper()
+    # spread is rated before the distribution is produced
+    assert user.upper().index("SPREAD") < user.upper().index("DISTRIBUTION")
+    assert "from Finland" in user
+    assert "[A, B]" in user and "LAST" in user
+
+
+def test_superforecaster_runs_full_pipeline_in_order():
+    assert "superforecaster" in STRATEGIES
+    rec = _rec({"cntry": "Finland"}, "The year is 2016. You are from Finland.")
+    user = _user("superforecaster", rec)
+    # all four moves present
+    for marker in ("OUTSIDE VIEW", "SPREAD", "ADJUST", "PREMORTEM"):
+        assert marker in user, marker
+    # and in pipeline order: outside view -> spread -> adjust -> premortem
+    order = [user.index(m) for m in ("OUTSIDE VIEW", "SPREAD", "ADJUST", "PREMORTEM")]
+    assert order == sorted(order)
+    assert "base rate" in user.lower()
+    assert "from Finland" in user
+    assert "[A, B]" in user and "LAST" in user
+
+
+def test_new_forecasting_strategies_register_as_predictors():
+    from scrye.experiment import PREDICTOR_REGISTRY
+
+    for name in ("outside_view", "entropy_first", "superforecaster"):
+        assert name in PREDICTOR_REGISTRY
