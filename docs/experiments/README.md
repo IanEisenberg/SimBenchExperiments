@@ -32,5 +32,6 @@ this folder enforces.
 | [03](stage-03-persona-mechanisms.md) | Persona mechanisms | DONE | Negative result: Monte-Carlo individuals (−15.7) and diversity-CoT (−3.1) both lose to the simple single-call framing; contextualized/anti_flattening stays best |
 | [04](stage-04-fulldev-confirmation.md) | Full-dev confirmation | DONE | At full dev (n=2566) anti_flattening beats faithful +2.81 (clears noise); contextualized within noise. Winner: anti_flattening @ 3.1-flash-lite |
 | [05](stage-05-val-confirmation.md) | Val confirmation (first val touch) | DONE | CONFIRMED on held-out val: anti_flattening 53.0 vs faithful 47.0 (+6.0, clears noise, > dev gap). anti_flattening @ 3.1-flash-lite locked; test untouched |
+| [06](stage-06-calibration.md) | Calibration sweep | DONE | Negative: all 3 calibrators (TempScaling, EntropyTemp, Dirichlet) lose to identity; anti_flattening needs no post-hoc correction |
 
 _Statuses: PLANNED → RUNNING → DONE. Update this row when a stage closes._
