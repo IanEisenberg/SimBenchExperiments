@@ -1,6 +1,6 @@
 # Stage 05 — Validation-set confirmation (first val touch)
 
-- **Status:** PLANNED → _RUNNING_ → _DONE_
+- **Status:** **DONE** (ran 2026-06-20) — selection **CONFIRMED**; advantage held and grew on val
 - **Run name:** `2026-06-20-val-confirm`
 - **Preregistered:** 2026-06-20
 - **Owner:** Ian + Claude
@@ -43,16 +43,31 @@ The selection is **CONFIRMED** iff **both** hold on val grouped:
 
 ---
 
-## Results _(appended after the run)_
+## Results
 
-- **n:** grouped=1,903, pop=1,864 · **Cost:** _pending_
+- **n:** grouped=1,903, pop=1,864 · **Cost:** $0.91 · **7,526 calls** (8 cache hits — val was never queried before) · **26.5 min**
 
 | system | val grouped | 95% CI | dev grouped | pop | cf_alignment |
 |---|---|---|---|---|---|
-| _pending_ | | | | | |
+| **anti_flattening** | **53.02** | [51.50, 54.65] | 48.81 | 33.64 | 0.419 |
+| faithful (baseline) | 46.98 | [45.03, 48.84] | 46.01 | 26.61 | 0.397 |
 
-**Level holds (anti_flattening val ≈ dev)?** _pending_
-**Advantage holds (anti_flattening > faithful on val)?** _pending_
-**Selection confirmed?** _pending_
+- **Level holds?** ✅ anti_flattening val 53.02 ≥ dev 48.81 — no overfit drop (in
+  fact higher on val).
+- **Advantage holds?** ✅ **+6.03 on val, clears the noise floor (1.91)** — and
+  exceeds the dev gap (+2.81). cf_alignment 0.419 ≥ faithful 0.397.
+- **Selection CONFIRMED.**
 
-**Run files:** _pending_
+### Outcome
+
+**`anti_flattening` @ `gemini-3.1-flash-lite` is locked** as the system. The
+within-group-diversity conditioning advantage over the SimBench first-person
+baseline is real and **generalized out-of-sample** (held and grew on val). Both
+systems scored a touch higher on val than dev (different family split), but the
+*gap* is robust.
+
+No further val tuning (this was the single confirmation round, 2 configs).
+`test` (3,592, incl. the three required questions) remains **locked and untouched**
+— reserved for a future one-time headline number, not run in this session.
+
+**Run files:** `outputs/runs/2026-06-20-val-confirm.{topline.csv, results.json, meta.json, log}`
