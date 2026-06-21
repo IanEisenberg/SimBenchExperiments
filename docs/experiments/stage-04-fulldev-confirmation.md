@@ -1,6 +1,6 @@
 # Stage 04 — Full-dev confirmation of the top systems
 
-- **Status:** PLANNED → _RUNNING_ → _DONE_
+- **Status:** **DONE** (ran 2026-06-20) — anti_flattening confirmed best; contextualized within noise of faithful
 - **Run name:** `2026-06-20-fulldev-confirm`
 - **Preregistered:** 2026-06-20
 - **Owner:** Ian + Claude
@@ -47,16 +47,41 @@ All on `gemini-3.1-flash-lite`, `temperature=0`, `zero_shot` predictor.
 
 ---
 
-## Results _(appended after the run)_
+## Results
 
-- **n grouped / pop:** _pending_ · **Cost:** _pending_ · **Calls:** _pending_
+- **n:** grouped=2,566, pop=3,585 · **Cost:** $1.91 · **15,803 calls** (2,650 cache hits) · **52.5 min**
 
 | system | grouped | 95% CI | pop | pooled | cf_alignment |
 |---|---|---|---|---|---|
-| _pending_ | | | | | |
+| **anti_flattening** | **48.81** | [47.33, 50.38] | 35.10 | 40.82 | 0.388 |
+| contextualized | 47.60 | [45.78, 49.40] | 32.49 | 38.79 | 0.408 |
+| faithful (control) | 46.01 | [44.16, 47.77] | 29.69 | 36.49 | 0.374 |
 
-**Noise floor (grouped):** _pending_
-**Does contextualized / anti_flattening beat faithful beyond noise?** _pending_
-**Carry-forward to val/test:** _pending_
+**Noise floor (grouped):** ≈1.81 (half-width of the larger CI).
 
-**Run files:** _pending_
+### Verdict
+
+- **`anti_flattening` BEATS `faithful`: +2.81 > noise floor.** The first clean,
+  statistically-resolved confirmation that conditioning helps — and it also wins
+  on pop (35.10) and has cf_alignment ≥ faithful.
+- **`contextualized` is WITHIN noise of `faithful`: +1.59 < 1.81.** Its lead on
+  the small Stage 02/03 subsamples (where it nosed ahead of anti_flattening) does
+  **not** hold at full dev — it is not a statistically clear improvement over the
+  baseline here.
+- `anti_flattening` vs `contextualized`: +1.22 (within noise; anti_flattening leads).
+
+### Carry-forward to the val/test step
+
+**`anti_flattening` on `gemini-3.1-flash-lite`** — the only candidate that beats
+`faithful` beyond the noise floor, best on pop, and cf_alignment ≥ faithful.
+**This revises the earlier carry-forward** (subsamples favored `contextualized`;
+at full dev `anti_flattening` is the confirmed winner).
+
+### Key finding
+
+The conditioning advantage is **real but modest** (~+2.8 grouped on the winning
+model). Combined with Stages 01–03: the big lever was the **model** (+17 from
+2.5→3.1-flash-lite); the **strategy** adds a smaller, now-confirmed ~+3 — and
+`anti_flattening` (preserve within-group minority mass) is the system to lock in.
+
+**Run files:** `outputs/runs/2026-06-20-fulldev-confirm.{topline.csv, results.json, meta.json, log}`
