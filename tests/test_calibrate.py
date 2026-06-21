@@ -2,7 +2,10 @@
 
 import numpy as np
 
+import pytest
+
 from scrye.calibrate import (
+    AbstainCalibrator,
     ChainCalibrator,
     DirichletCalibrator,
     EntropyTargetCalibrator,
@@ -17,9 +20,9 @@ from scrye.data import SimBenchRecord
 from scrye.scoring import response_entropy
 
 
-def _rec(options, truth):
+def _rec(options, truth, dataset="ESS"):
     return SimBenchRecord(
-        dataset_name="ESS", split="grouped", input_template="Q?",
+        dataset_name=dataset, split="grouped", input_template="Q?",
         options=tuple(options), human_answer=dict(truth), group_prompt="",
     )
 
@@ -76,12 +79,39 @@ def test_temp_fit_recovers_flattening_temperature():
     assert cal.T > 1.0
 
 
+def test_abstain_calibrator_falls_back_to_uniform_on_bad_datasets():
+    truth = {"A": 0.7, "B": 0.2, "C": 0.1}
+    # GOOD dataset: predictions close to truth (better than uniform)
+    good = [(_rec(["A", "B", "C"], truth, dataset="GOOD"),
+             {"A": 0.65, "B": 0.22, "C": 0.13}) for _ in range(6)]
+    # BAD dataset: predictions on the wrong option (worse than uniform)
+    bad = [(_rec(["A", "B", "C"], truth, dataset="BAD"),
+            {"A": 0.05, "B": 0.05, "C": 0.90}) for _ in range(6)]
+    recs = [r for r, _ in good + bad]
+    raws = [p for _, p in good + bad]
+
+    cal = AbstainCalibrator().fit(recs, raws)
+    assert "BAD" in cal.datasets_ and "GOOD" not in cal.datasets_
+    # a BAD-dataset record is replaced with uniform
+    out_bad = cal.transform(*bad[0])
+    assert out_bad == pytest.approx({"A": 1 / 3, "B": 1 / 3, "C": 1 / 3})
+    # a GOOD-dataset record is passed through unchanged
+    assert cal.transform(*good[0]) == pytest.approx(good[0][1])
+
+
+def test_abstain_calibrator_unfit_is_passthrough():
+    cal = AbstainCalibrator()
+    pred = {"A": 0.6, "B": 0.4}
+    assert cal.transform(_rec(["A", "B"], {"A": 0.5, "B": 0.5}), pred) == pytest.approx(pred)
+
+
 def test_make_calibrator_dispatch():
     assert isinstance(make_calibrator("temp", T=1.5), TempScaling)
     assert isinstance(make_calibrator("entropy_temp", slope=1.0), EntropyTempScaling)
     assert isinstance(make_calibrator("dirichlet", alpha=0.5), DirichletCalibrator)
     assert isinstance(make_calibrator("identity"), IdentityCalibrator)
     assert isinstance(make_calibrator("entropy_target", gain=1.0), EntropyTargetCalibrator)
+    assert isinstance(make_calibrator("abstain"), AbstainCalibrator)
 
 
 # --- temper_to_entropy ----------------------------------------------------

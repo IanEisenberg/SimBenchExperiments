@@ -16,7 +16,13 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 
 from .data import SimBenchRecord
-from .scoring import response_entropy, simbench_score
+from .scoring import (
+    _aligned_vectors,
+    response_entropy,
+    simbench_score,
+    total_variation_distance,
+    uniform_like,
+)
 
 
 class Calibrator(ABC):
@@ -355,6 +361,51 @@ class DirichletCalibrator(Calibrator):
         return {k: float(x) for k, x in zip(keys, p)}
 
 
+class AbstainCalibrator(Calibrator):
+    """"I don't know" fallback: predict **uniform** on datasets where the model
+    scores *below uniform*.
+
+    Some SimBench tasks are intrinsically unpredictable for an LLM (e.g.
+    OSPsychMACH, MoralMachine, Choices13k) — on them the model lands *worse* than
+    the uniform baseline, and a committal strategy is confidently wrong. There the
+    honest, score-improving move is to abstain and emit uniform (which scores ~0).
+
+    `fit` flags every dataset whose mean ``TVD(pred, truth)`` exceeds mean
+    ``TVD(uniform, truth)`` — i.e. the model is, on average, worse than uniform
+    there. `transform` returns uniform for records from a flagged dataset and
+    passes everything else through unchanged. Uses only dataset identity (known at
+    inference), never the truth, so it is reliability calibration — valid because
+    SimBench test reuses the same datasets. Pairs naturally with a committal
+    strategy: commit where the model is reliable, abstain where it is not.
+    """
+
+    name = "abstain"
+
+    def __init__(self, datasets: Sequence[str] | None = None) -> None:
+        self.datasets_: set[str] = set(datasets or [])
+
+    def fit(self, records, raw_preds):
+        model_tvd: dict[str, list[float]] = {}
+        unif_tvd: dict[str, list[float]] = {}
+        for rec, pred in zip(records, raw_preds):
+            p, q = _aligned_vectors(pred, rec.human_answer, options=list(rec.options))
+            ds = rec.dataset_name
+            model_tvd.setdefault(ds, []).append(total_variation_distance(q, p))
+            unif_tvd.setdefault(ds, []).append(total_variation_distance(uniform_like(p), p))
+        self.datasets_ = {
+            ds for ds in model_tvd
+            if float(np.mean(model_tvd[ds])) > float(np.mean(unif_tvd[ds]))
+        }
+        return self
+
+    def transform(self, record, pred):
+        if record.dataset_name in self.datasets_:
+            opts = list(record.options) or list(pred)
+            k = len(opts)
+            return {o: 1.0 / k for o in opts} if k else dict(pred)
+        return dict(pred)
+
+
 class ChainCalibrator(Calibrator):
     """Apply calibrators in sequence. `fit` threads predictions through each
     stage so later stages fit on earlier stages' output."""
@@ -388,6 +439,7 @@ def make_calibrator(name: str, **kwargs) -> Calibrator:
         "entropy_temp": EntropyTempScaling,
         "entropy_target": EntropyTargetCalibrator,
         "feat_entropy_target": FeatureEntropyTargetCalibrator,
+        "abstain": AbstainCalibrator,
         "dirichlet": DirichletCalibrator,
     }
     if name == "chain":
