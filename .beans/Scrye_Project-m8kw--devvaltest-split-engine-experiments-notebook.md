@@ -26,6 +26,3 @@ Leave-family-out split engine + experiment harness, both swappable-by-design.
 - **notebooks/01_experiments.ipynb** — the experiments bench: build split, set MODEL + SYSTEMS, compare, sweep models, drill into any system with the existing viz suite. test stays sealed.
 
 Verified on real SimBench (13,510 recs): split dev 6151 / val 3767 / test 3592 recs (259 required-Q records all in test). Notebook runs end-to-end from the shared cache: zero-shot @ gemini-flash-lite S=17.3 (CI 4.8-29.6) vs uniform floor; model sweep shows qwen-7b S=-1.7 (raw zero-shot tracks capability). Full suite 60 passed, 1 skipped (network).
-
-## Summary
-2nd val touch since Stage 05. CONFIRMED: calibrated_commitment + AbstainCalibrator beats champion anti_flattening on val — grouped +0.66 (within noise), pop +3.26, pooled +1.95. All 3 preregistered rules hold. Abstention is the MVP (pop 31.7->36.9). New locked system = calibrated_commitment @ gemini-3.1-flash-lite + abstain{Choices13k,MoralMachine,OSPsychMACH}. Notebook 03 winner cells updated. test untouched.
