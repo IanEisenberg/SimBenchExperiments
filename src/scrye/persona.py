@@ -378,6 +378,46 @@ class ContextualizedStrategy(PromptStrategy):
                 {"role": "user", "content": user}]
 
 
+class CalibratedCommitmentStrategy(PromptStrategy):
+    """Mode-first distributional framing — the Stage 10 prompt search winner.
+
+    Combines the four design goals in one direct-answer prompt: (1) diversity of
+    perspectives and (2) no stereotyping (keep minority mass), (3) consensus/entropy
+    awareness (concentrate when the group agrees, spread when divided), and (4)
+    *licensed commitment* — when one option clearly leads, give it a clear plurality
+    rather than hedging evenly. Its real lever is **mode/location** (get the leading
+    answer right), which the error decomposition (notebook 04) and the calibration
+    stages (08-09) identified as the binding constraint. On dev it improves both the
+    grouped (+1.8) and pop (+2.1) splits over ``anti_flattening`` and lifts mode
+    accuracy, though the grouped gain is within the dev noise floor — a
+    val-confirmation candidate, not yet a confirmed replacement.
+    """
+
+    name = "calibrated_commitment"
+    SYSTEM = (
+        "You are an expert survey methodologist. Estimate how a group answers in "
+        "two respects at once: (1) which option is most common for this group — get "
+        "the leading answer right — and (2) how concentrated or divided the group "
+        "truly is around it. Real groups are diverse, so never zero out minority "
+        "views that exist or reduce the group to a stereotype; but when one option "
+        "clearly leads, give it a clear plurality rather than hedging evenly across "
+        "options. A broad population is usually more split than a specific subgroup."
+    )
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        user = (
+            f"Consider a large, representative sample of {who}{year_clause}.\n\n"
+            f"{record.input_template.strip()}\n\n"
+            "Give the group's answer distribution: put the most mass on the option "
+            "this group most likely favors, concentrate it when they largely agree "
+            "and spread it when they are divided, and keep minority views where they "
+            f"genuinely exist.\n{_json_instruction(record.options)}"
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": user}]
+
+
 class DiversityElicitationStrategy(PromptStrategy):
     """Single-call framing that makes the model *reason about the range of views*
     before committing to a distribution.
@@ -648,6 +688,7 @@ STRATEGIES: dict[str, PromptStrategy] = {
         PersonaEmbodimentStrategy(),
         AntiFlatteningStrategy(),
         ContextualizedStrategy(),
+        CalibratedCommitmentStrategy(),
         DiversityElicitationStrategy(),
         OutsideViewStrategy(),
         EntropyFirstStrategy(),

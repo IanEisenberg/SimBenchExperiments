@@ -149,6 +149,23 @@ def test_get_strategy_unknown_raises():
         get_strategy("does_not_exist")
 
 
+def test_calibrated_commitment_registered_direct_and_mode_first():
+    assert "calibrated_commitment" in STRATEGIES
+    rec = _rec({"cntry": "Finland"}, "The year is 2016. You are from Finland.")
+    messages = get_strategy("calibrated_commitment").build_messages(rec)
+    assert len(messages) == 2 and messages[0]["role"] == "system"
+    text = " ".join(m["content"] for m in messages)
+    # direct-answer format: must NOT ask for reasoning-first
+    assert "reasoning first" not in text.lower() and "LAST" not in text
+    # carries the four design elements + the mode-first lever + the group/year
+    sysmsg = messages[0]["content"].lower()
+    assert "leading answer" in sysmsg or "most common" in sysmsg   # mode-first
+    assert "stereotype" in sysmsg and "minority" in sysmsg          # anti-flatten/diversity
+    assert "divided" in sysmsg or "concentrated" in sysmsg          # consensus awareness
+    user = messages[1]["content"]
+    assert "from Finland" in user and "[A, B]" in user
+
+
 def test_diversity_elicitation_registered_and_reasons_first():
     assert "diversity_elicitation" in STRATEGIES
     rec = _rec({"cntry": "Finland"}, "You are from Finland.")
