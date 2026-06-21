@@ -62,6 +62,7 @@ data.py          SimBenchRecord (typed row from the dataset)
 - `ledger.py` — `Ledger` / `ExperimentNode`: DAG of all search steps, serialized to disk.
 - `manifest.py` — `RunManifest`: the frozen, machine-readable record of a run's data selection + params (split seed/fractions/unit, goal, allowed levers, budgets, eta, model, dataset fingerprint). Written beside the ledger as `<run>.manifest.json`; makes a run reproducible.
 - `results.py` — query helpers over a loaded `Ledger` (`nodes_frame`, `best_progression`, `spec_from_node`).
+- `decompose.py` — error decomposition: splits each item's `TVD(P,Q)` into `concentration_err` (wrong spread/profile) + `location_err` (right shape, wrong options), both ≥ 0 and summing to TVD, plus signed facets (entropy gap, mode accuracy). `decompose_records()` turns a run's `results.json` into a per-item frame; drives notebook 04.
 
 **Scoring:** `S = 100 × (1 − TVD(P,Q) / TVD(P,U))`. Score 0 = uniform baseline; 100 = perfect match; negative = worse than uniform. Always use `build_normalizers()` on the **full split** before scoring subsamples — the Eq. 2 denominator must be dataset-level, not subsample-level.
 
@@ -75,6 +76,7 @@ data.py          SimBenchRecord (typed row from the dataset)
 | `01_experiments.ipynb` | Main system comparisons and ablations |
 | `02_persona_factory.ipynb` | Persona strategy ablation |
 | `03_experiment_results.ipynb` | Analysis of search results from the Ledger |
+| `04_error_decomposition.ipynb` | *Why* a run's distributions are wrong: TVD split into concentration (spread) vs location (options), via `scrye.decompose` |
 
 Notebooks import `scrye` and delegate logic to the library; reusable code lives in `src/scrye/`, not in cells. `nbstripout` strips outputs before commit.
 
