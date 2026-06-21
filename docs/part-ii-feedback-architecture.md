@@ -293,12 +293,65 @@ Practically: for a new segment with no transaction history, the architecture use
 
 ---
 
+## 6. Extension: Behavioral Foundation Model (Centaur-Style)
+
+The architecture above treats the backbone LLM as fixed — a text-pretrained prior that is either calibrated (warm path) or fine-tuned per-tenant (hot path). A more ambitious extension makes the backbone itself a living component of the feedback loop.
+
+Binz et al. (2024) — *Centaur: A Foundation Model of Human Cognition* — fine-tuned Llama-3.1-70B on the Psych-101 dataset (~60k participants across thousands of cognitive experiments). The resulting model predicted held-out human behavior substantially better than zero-shot, with strong generalization to tasks and populations not present in training. The key result: a foundation model fine-tuned on behavioral data learns structural properties of human decision-making that transfer across domains, not just task-specific patterns.
+
+**The revised stack:**
+
+```
+Pretrained LLM (text prior)
+    ↓
+[existing architecture]
+
+becomes:
+
+Pretrained LLM (text prior)
+    ↓
+Behavioral foundation fine-tune   ← cross-tenant, anonymized aggregate distributions
+    ↓                                 updated periodically; validated before shipping
+Per-tenant calibration (L4 warm/hot path)
+    ↓
+Prediction
+```
+
+**What this changes and why it is defensible:**
+
+Section 4 argued that shared data across tenants is not a flywheel, because population-level behavioral distributions are not exchangeable across customer bases. That claim holds for *raw data*. Model weights are a different matter: if you aggregate anonymized behavioral patterns (purchase propensity distributions by demographic profile × product category × offer context) into fine-tuning data, the knowledge is encoded in weights — not in individual records. The same logic that makes Centaur privacy-defensible applies: what transfers is learned structure of human decision-making, not who bought what.
+
+This rehabilitates the multi-tenancy argument in a principled way. The flywheel is real, but it operates at the model-weight level rather than the data level:
+
+- *What transfers:* learned priors over how demographic segments respond to offers, how entropy varies across product types, how context modulates propensity — the structural features of behavioral distributions.
+- *What does not transfer:* the specific joint distribution of any one tenant's customer base, which remains the domain of the per-tenant calibration layer.
+
+The behavioral foundation model improves the cold path materially: even a new tenant with zero outcomes benefits from a backbone that already knows something about how humans make purchasing decisions, not merely what they write about purchasing. It also reduces the work the warm-path calibrator needs to do — the prior is better, so the residual to correct is smaller.
+
+**Incremental updating as data accumulates:**
+
+The behavioral foundation model is not trained once. It is periodically retrained on the growing cross-tenant corpus, with increasingly fine-grained behavioral segmentation as data density allows — finer product categories, more nuanced demographic intersections, recency weighting on recent behavioral waves. At low data volumes the fine-tuning is coarse (broad behavioral priors). As the corpus grows, the fine-tuning captures more specific behavioral structure. This is the legitimate version of "the system gets smarter over time" — grounded in weight updates on aggregate data, not raw customer pooling.
+
+Each updated behavioral foundation model is validated through the same update gate as L4 changes: shadow evaluation, lift test with the Blum-Hardt η condition, reliability ceiling check, and human sign-off (a foundation model update has a larger blast radius than a per-tenant calibrator).
+
+**What is genuinely unknown (empirical test required):**
+
+Centaur's generalization holds across *cognitive tasks* — memory, reasoning, choice under uncertainty, perceptual judgment. Whether that generalization extends to *commercial behavioral data* is untested. The domain gap may be substantial: Psych-101 is controlled laboratory experiments with clean stimuli; transaction logs are messy, confounded by price dynamics and promotion effects, and ecologically very different from a psychology study.
+
+Two specific risks:
+1. **Domain mismatch:** behavioral fine-tuning on sports e-commerce data may not improve predictions for, say, media consumption or financial products. The cross-domain generalization claim must be tested, not assumed.
+2. **Confound absorption:** if the fine-tuning corpus is not rigorously promotion-normalized (§3 ETL step), the behavioral foundation model learns "people buy more when there are discounts" rather than genuine preference structure. The anonymized fine-tuning data must be conditioned on offer context before aggregation, for the same reason as the per-tenant calibration labels.
+
+The defensible posture: propose the Centaur-style layer as the architecture, implement the cross-tenant fine-tuning in parallel with per-tenant calibration, and run a held-out generalization test across at least two distinct engagement types before claiming cross-domain transfer. The test is cheap (the foundation model is already being trained); the claim is only made if the data supports it.
+
+---
+
 ## Design Decisions and Tradeoffs
 
 **Why not fine-tune first?** Stage 06 showed the LLM with good prompting is already well-calibrated for its native domain (stated preferences). For behavioral outcomes, the value-action gap makes the LLM's zero-shot prior imprecise but not useless — still better than no prior. A calibration layer correcting for systematic OOD error is lower-risk and lower-cost than a fine-tune that replaces the prior. Fine-tuning is reserved for when calibration plateaus, which requires data volumes most tenants will not reach for months.
 
 **Why the Prediction Ledger must exist.** Without an explicit record of what was predicted before outcomes arrived, it is impossible to compute calibration errors honestly. All retrospective analyses would be subject to hindsight contamination — effectively, data snooping on the outcome. The ledger makes the prediction-outcome link explicit and auditable, enforcing the same leakage discipline as the Part I dev/val/test protocol.
 
-**Why shared data across tenants is not a flywheel.** Population simulation predicts the behavior of specific populations, and population-level distributions are not exchangeable across customer bases. Claiming otherwise conflates "we have more training examples" with "we have more training examples about *you*." The honest architecture shares methods and validates them — not the data.
+**Why shared data across tenants is not a flywheel, but shared weights can be.** Population-level behavioral distributions are not exchangeable across customer bases — raw data pooling conflates "more training examples" with "more training examples about *you*." But a behavioral foundation model (§6) encodes cross-tenant learning in weights rather than data, which is the legitimate flywheel: the backbone gets better at predicting human behavior in general, while the per-tenant calibration layer handles what is specific to each customer base.
 
 **Why the reliability ceiling is the hard stop.** Any metric can be gamed under adaptive evaluation. The reliability ceiling — irreducible noise from finite-n sampling — is the one bound that cannot be gamed: it is a property of the data-generating process, not the model. Using it as a hard gate ensures the system does not mistake sampling noise for model improvement, which is the central risk of an adaptive evaluation loop.
