@@ -1,6 +1,6 @@
 # Stage 03 — Persona mechanisms (Monte-Carlo individuals + diversity-elicitation CoT)
 
-- **Status:** PLANNED → _RUNNING_ → _DONE_
+- **Status:** **DONE** (ran 2026-06-20) — both mechanisms **lost** (negative result)
 - **Run name:** `2026-06-20-persona-mechanisms`
 - **Preregistered:** 2026-06-20
 - **Owner:** Ian + Claude
@@ -82,18 +82,47 @@ seeded synthetic personas (variation from the sampler, not the model RNG).
 
 ---
 
-## Results _(appended after the run)_
+## Results
 
-- **Subsample n / pop / grouped:** _pending_ · **Cost:** _pending_
+- **Subsample:** dev grouped=500, pop=100 · **Cost:** $2.08 · **13,153 calls** (1,247 cache hits) · **46 min** · model `gemini-3.1-flash-lite`
 
 ### Grouped score by system (primary) — mean [95% CI]
 
-| system | grouped | pop | pooled |
-|---|---|---|---|
-| _pending_ | | | |
+| system | grouped | 95% CI | pop | pooled | frac_below_uniform |
+|---|---|---|---|---|---|
+| **contextualized** (base) | **44.95** | [41.1, 48.8] | 19.24 | 40.67 | 0.157 |
+| **anti_flattening** (base) | 44.51 | [41.0, 48.0] | 21.47 | 40.67 | 0.157 |
+| faithful (control) | 41.49 | [37.3, 45.6] | 18.84 | 37.71 | 0.190 |
+| diversity_elicitation *(new)* | 41.85 | [37.8, 45.9] | 23.42 | 38.78 | 0.167 |
+| monte_carlo, N=20 *(new)* | 29.28 | [25.1, 33.2] | 5.01 | 25.24 | 0.267 |
 
-**H1 (monte_carlo > best single-call):** _pending_
-**H2 (diversity_elicitation > parents):** _pending_
-**H3 (cost-adjusted carry-forward):** _pending_
+### Verdicts — both new mechanisms LOST
 
-**Run files:** _pending_
+- **H1 (monte_carlo > best single-call): REFUTED, decisively.** `monte_carlo`
+  grouped 29.28 vs best base 44.95 → **−15.7**, far beyond the noise floor (~4).
+  Even after fixing the seed-determinism collapse, externally aggregating
+  *uniformly-sampled* synthetic individuals is much worse than the model's own
+  single-call group estimate — we don't know the true persona mixing weights, and
+  uniform weighting over 12 ideology archetypes over-disperses. (MC's pop score
+  5.0 and highest `frac_below_uniform` 0.267 confirm it injects noise.)
+- **H2 (diversity_elicitation > parents): REFUTED.** 41.85 vs anti_flattening 44.51
+  / contextualized 44.95 → **−2.7 to −3.1** (within noise, but trending *worse* and
+  regressing to ~faithful). The reasoning preamble did not help.
+- **H3 / carry-forward: unchanged — `contextualized` (≈`anti_flattening`) on
+  `gemini-3.1-flash-lite`.** Neither new mechanism is carried forward.
+
+### Key finding
+
+A rigorous test of the headline "simulate individuals and aggregate" hypothesis:
+**it does not work here.** The simple single-call distributional framing
+(contextualized/anti_flattening) remains best; the model's internal group
+estimate beats our hand-built Monte-Carlo mixture and a reason-first prompt. A
+clean negative result — the method search converges on the Stage 01/02 winner.
+
+> **Caveat:** n=500 grouped → noise floor ~4. The base conditioning advantage
+> over faithful (+3.5) is itself at the noise edge here (consistent with Stage 02);
+> the *mechanism* losses (esp. MC, −15.7) are well clear of it.
+
+**Run files:** `outputs/runs/2026-06-20-persona-mechanisms.{topline.csv, results.json, meta.json, log}`;
+ledger extended to 12 nodes (`predictor.swap → diversity_elicitation` / `→ monte_carlo`
+off the `gemini-3.1-flash-lite` contextualized node).
