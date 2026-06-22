@@ -59,6 +59,90 @@ def _extract_json_object(text: str) -> dict | None:
         return None
 
 
+def _parse_vote(text: str, options) -> str | None:
+    """Parse a single discrete choice from a voter response.
+
+    Prefers an explicit ``{"choice": "<label>"}`` JSON object; otherwise falls
+    back to a bare label mention, but only when *exactly one* option label
+    appears as a standalone token (an ambiguous "A or B" returns None so the
+    draw is skipped rather than guessed).
+    """
+    opts = [str(o) for o in options]
+    obj = _extract_json_object(text)
+    if obj is not None and "choice" in obj:
+        choice = str(obj["choice"]).strip()
+        return choice if choice in opts else None
+    if not text:
+        return None
+    hits = [o for o in opts if re.search(rf"\b{re.escape(o)}\b", text)]
+    return hits[0] if len(hits) == 1 else None
+
+
+class VotingEnsemblePredictor(Predictor):
+    """Simulate a population by polling individuals who each cast ONE vote.
+
+    Draw ``n_individuals`` synthetic people (via
+    :func:`~scrye.persona.sample_disposition`, varied along task-agnostic
+    dispositional axes), ask each to commit to a single option
+    (:func:`~scrye.persona.voter_messages`), and tally the votes into a
+    distribution. Unlike :class:`MonteCarloPredictor`, no per-individual
+    distribution is averaged, so the group's spread is the genuine vote split:
+    sharp when sampled people agree, diffuse when they disagree.
+
+    ``alpha`` adds Laplace smoothing to the tally (default 0.5), so an option
+    that drew zero votes still carries a little mass — a finite sample of
+    voters should not assert probability exactly 0. Unparseable votes are
+    skipped (counted in ``n_parse_failures``); if every vote fails, falls back
+    to uniform. Variation is injected by the seeded sampler, so results are
+    reproducible at ``temperature=0`` and cache cleanly.
+    """
+
+    def __init__(
+        self,
+        client: LLMClient,
+        n_individuals: int = 24,
+        temperature: float = 0.0,
+        base_seed: int = 0,
+        alpha: float = 0.5,
+        name: str = "voting_ensemble",
+        sampler=None,
+    ) -> None:
+        from .persona import sample_disposition
+
+        self.client = client
+        self.n_individuals = n_individuals
+        self.temperature = temperature
+        self.base_seed = base_seed
+        self.alpha = alpha
+        self.name = name
+        self.sampler = sampler or sample_disposition
+        self.n_parse_failures = 0
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        from .persona import voter_messages
+
+        tally = {opt: 0 for opt in record.options}
+        valid = 0
+        for i in range(self.n_individuals):
+            disposition = self.sampler(record, self.base_seed * 10_000 + i)
+            text = self.client.complete(
+                voter_messages(record, disposition),
+                temperature=self.temperature,
+                seed=self.base_seed + i,
+            ).text
+            choice = _parse_vote(text, record.options)
+            if choice is None:
+                self.n_parse_failures += 1
+                continue
+            tally[choice] += 1
+            valid += 1
+        if valid == 0:
+            return _uniform(record)
+        smoothed = {opt: tally[opt] + self.alpha for opt in record.options}
+        grand = sum(smoothed.values())
+        return {opt: value / grand for opt, value in smoothed.items()}
+
+
 class ZeroShotPredictor(Predictor):
     """Verbalized-distribution zero-shot predictor (the project default).
 

@@ -677,6 +677,83 @@ def individual_messages(record: SimBenchRecord, persona: str) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
+# Discrete-vote simulation (for VotingEnsemblePredictor)
+# --------------------------------------------------------------------------- #
+#
+# MonteCarloPredictor asks each synthetic individual for a *distribution* and
+# averages — which double-blurs (a hedging individual stays hedged) and, with
+# uniform ideology weights, over-disperses (Stage 03, decisively refuted). The
+# voting ensemble instead asks each individual to commit to ONE option; the
+# group distribution is the *tally* of votes, so spread is fully endogenous —
+# it appears only when sampled people genuinely disagree.
+#
+# The variation axes are deliberately TASK-AGNOSTIC dispositions (risk
+# attitude, moral lean, temperament, values) rather than the political/
+# demographic axes above, which are irrelevant to gambles, moral dilemmas, and
+# psychometric items. They induce realistic disagreement on judgment/choice
+# tasks without encoding any single dataset's peculiarities.
+
+VOTER_SYSTEM = (
+    "You simulate one specific, randomly drawn member of the public taking part "
+    "in a study. Real people differ enormously in their values, risk tolerance, "
+    "moral intuitions, and temperament. Fully inhabit the particular person "
+    "described and decide as they would — not as an average or a hedge. Commit "
+    "to the single option this one person would choose."
+)
+
+#: Task-agnostic dispositional clauses; each reads after "who ...".
+DISPOSITION_AXES: tuple[str, ...] = (
+    "is cautious and strongly risk-averse",
+    "is a bold risk-taker who is comfortable with uncertainty",
+    "is moderately risk-tolerant and pragmatic",
+    "decides quickly on gut instinct and first impressions",
+    "deliberates slowly and weighs the analytical details",
+    "weighs outcomes and the greater good above all else",
+    "holds firm moral rules and duties regardless of consequences",
+    "prioritizes loyalty to their own family and community",
+    "is highly empathetic and puts others' feelings first",
+    "is self-reliant, competitive, and individualistic",
+    "is conventional, traditional, and wary of change",
+    "is unconventional, curious, and open to new experiences",
+    "is trusting and tends to give people the benefit of the doubt",
+    "is skeptical, cynical, and questions stated motives",
+    "is agreeable and inclined to go along with the group",
+    "is contrarian and comfortable holding a minority view",
+    "is optimistic and expects things to work out",
+    "is anxious and tends to expect the worst",
+)
+
+
+def sample_disposition(record: SimBenchRecord, seed: int) -> str:
+    """Sample one synthetic individual's disposition as a descriptor clause.
+
+    Draws two distinct task-agnostic dispositional traits from
+    :data:`DISPOSITION_AXES` with a seeded RNG (same seed → same person).
+    Reproducible and model-independent, so the ensemble's diversity comes from
+    us, not the (near-deterministic) sampler.
+    """
+    rng = random.Random(seed)
+    a, b = rng.sample(DISPOSITION_AXES, 2)
+    return f"{a}, and {b}"
+
+
+def voter_messages(record: SimBenchRecord, disposition: str) -> list[dict]:
+    """Chat messages asking the simulated person to cast ONE discrete vote."""
+    who, year_clause = _population_phrase(record)
+    from_clause = f" from {who}{year_clause}" if who and who != "people" else ""
+    labels = ", ".join(str(o) for o in record.options)
+    user = (
+        f"Imagine ONE specific person{from_clause} who {disposition}.\n\n"
+        f"{record.input_template.strip()}\n\n"
+        "Decide which single option this one person would choose. Do not hedge "
+        "or give probabilities — make the one choice this person commits to.\n"
+        f'Respond with only JSON: {{"choice": "<one of: {labels}>"}}.'
+    )
+    return [{"role": "system", "content": VOTER_SYSTEM},
+            {"role": "user", "content": user}]
+
+
+# --------------------------------------------------------------------------- #
 # Registry
 # --------------------------------------------------------------------------- #
 
