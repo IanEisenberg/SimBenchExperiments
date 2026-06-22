@@ -190,6 +190,36 @@ class ZeroShotPredictor(Predictor):
         return out
 
 
+class RoutingPredictor(Predictor):
+    """Dispatch each record to a sub-predictor chosen by an upfront task classifier.
+
+    The system from Stage 15: a `classifier` labels the record's *task kind*
+    (see :mod:`scrye.taskkind`), and `routes` maps each kind to the Predictor
+    that works best for that kind (task-context, voting, uniform-abstain, or the
+    base prompt). Records whose kind is absent from `routes` fall back to
+    `default`. ``kind_counts`` records the realized routing for inspection.
+
+    Because the route is keyed on a property of the *question* rather than the
+    dataset, a previously unseen dataset of a known kind is handled correctly
+    without any per-dataset fitting.
+    """
+
+    def __init__(self, classifier, routes: dict[str, Predictor],
+                 default: Predictor, name: str = "router") -> None:
+        from collections import Counter
+
+        self.classifier = classifier
+        self.routes = routes
+        self.default = default
+        self.name = name
+        self.kind_counts: Counter = Counter()
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        kind = self.classifier(record)
+        self.kind_counts[kind] += 1
+        return self.routes.get(kind, self.default).predict(record)
+
+
 class UniformPredictor(Predictor):
     """The naive baseline: always predict uniform. Scores ~0 by construction.
 
