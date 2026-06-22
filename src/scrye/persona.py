@@ -754,6 +754,143 @@ def voter_messages(record: SimBenchRecord, disposition: str) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
+# Task-context prompting (Stage 14)
+# --------------------------------------------------------------------------- #
+#
+# SimBench presents every item *atomized* — one question + a one-line group
+# prompt (paper §2.2, p23). But the original respondents answered inside a task
+# context: a full psychometric instrument (MACH-IV is 20 items), a session of
+# many gambles/dilemmas, a multi-topic survey. The construct that shapes the
+# population distribution lives *across* the items. These strategies restore the
+# context the respondents actually had — a faithful task brief and/or sibling
+# items from the same instrument — while keeping the calibrated_commitment
+# system prompt and distributional ask fixed, so the only thing that varies is
+# context. No human answers are ever shown (sibling *questions* only), so this
+# is a pure prompt method with no label leakage.
+
+#: Faithful one-line task descriptions, drawn from the SimBench paper's
+#: per-dataset appendix (the instrument's real purpose — context the
+#: respondents had). Used by the `brief`/`both` variants.
+TASK_BRIEFS: dict[str, str] = {
+    "OSPsychMACH": "the MACH-IV, a 20-item personality scale measuring how much a "
+    "person endorses Machiavellian views — that manipulation and self-interest "
+    "can outweigh morality — answered on a 5-point Disagree–Agree scale",
+    "OSPsychBig5": "the Big Five personality inventory; its items measure five "
+    "broad personality traits and are answered on a Disagree–Agree scale",
+    "OSPsychRWAS": "the Right-Wing Authoritarianism Scale; its items measure "
+    "submission to established authority and adherence to convention, answered "
+    "on a Disagree–Agree scale",
+    "Choices13k": "a long series of choices between two monetary gambles, made "
+    "for a real cash bonus, run to study how people decide under risk",
+    "MoralMachine": "a series of self-driving-car moral dilemmas judged on the "
+    "public Moral Machine website, choosing which outcome is more acceptable",
+}
+
+
+def build_item_corpus(records) -> dict[str, list[str]]:
+    """Map each dataset to its list of unique item stems (insertion order).
+
+    The sibling pool the `items`/`both` variants draw from. Questions only — no
+    human answers — so it carries no label information.
+    """
+    corpus: dict[str, list[str]] = {}
+    seen: dict[str, set[str]] = {}
+    for r in records:
+        ds = r.dataset_name
+        stem = r.input_template.strip()
+        pool = corpus.setdefault(ds, [])
+        marks = seen.setdefault(ds, set())
+        if stem not in marks:
+            marks.add(stem)
+            pool.append(stem)
+    return corpus
+
+
+def _question_stem(input_template: str, max_chars: int = 220) -> str:
+    """A compact one-line rendering of an item for use as sibling context."""
+    t = input_template.strip()
+    idx = t.find("Options:")
+    if idx == -1:
+        idx = t.find("Options\n")
+    if idx != -1:
+        t = t[:idx]
+    t = " ".join(t.split())
+    return t[:max_chars] + ("…" if len(t) > max_chars else "")
+
+
+class TaskContextStrategy(PromptStrategy):
+    """calibrated_commitment + the task context the respondents actually had.
+
+    ``mode``:
+      * ``"brief"`` — prepend a faithful one-line description of the instrument
+        (from :data:`TASK_BRIEFS`), if available for the dataset.
+      * ``"items"`` — show ``k`` sibling items from the same instrument as
+        context (your "include other items" idea), deterministically chosen.
+      * ``"both"`` — brief and siblings.
+
+    Constructed with an item ``corpus`` (from :func:`build_item_corpus`). The
+    system prompt and the final distributional ask are copied verbatim from
+    :class:`CalibratedCommitmentStrategy`, so any score change is attributable
+    to the added context alone.
+    """
+
+    SYSTEM = CalibratedCommitmentStrategy.SYSTEM
+
+    def __init__(
+        self,
+        corpus: dict[str, list[str]],
+        mode: str = "items",
+        briefs: dict[str, str] | None = None,
+        k: int = 6,
+        name: str | None = None,
+    ) -> None:
+        if mode not in ("brief", "items", "both"):
+            raise ValueError(f"mode must be brief|items|both, got {mode!r}")
+        self.corpus = corpus
+        self.mode = mode
+        self.briefs = TASK_BRIEFS if briefs is None else briefs
+        self.k = k
+        self.name = name or f"task_context_{mode}"
+
+    def _siblings(self, record: SimBenchRecord) -> list[str]:
+        target = record.input_template.strip()
+        pool = [s for s in self.corpus.get(record.dataset_name, []) if s != target]
+        # deterministic: stable sort, take the first k
+        chosen = sorted(pool)[: self.k]
+        return [_question_stem(s) for s in chosen]
+
+    def build_messages(self, record: SimBenchRecord) -> list[dict]:
+        who, year_clause = _population_phrase(record)
+        parts = [f"Consider a large, representative sample of {who}{year_clause}."]
+
+        if self.mode in ("brief", "both"):
+            brief = self.briefs.get(record.dataset_name)
+            if brief:
+                parts.append(
+                    f"Context: these people are taking part in {brief}. They see "
+                    "the whole task, not just this one item."
+                )
+        if self.mode in ("items", "both"):
+            sibs = self._siblings(record)
+            if sibs:
+                listed = "\n".join(f"  - {s}" for s in sibs)
+                parts.append(
+                    "This question is one item from that larger set; other items "
+                    f"the same people answer include:\n{listed}"
+                )
+
+        parts.append(record.input_template.strip())
+        parts.append(
+            "Give the group's answer distribution: put the most mass on the option "
+            "this group most likely favors, concentrate it when they largely agree "
+            "and spread it when they are divided, and keep minority views where they "
+            f"genuinely exist.\n{_json_instruction(record.options)}"
+        )
+        return [{"role": "system", "content": self.SYSTEM},
+                {"role": "user", "content": "\n\n".join(parts)}]
+
+
+# --------------------------------------------------------------------------- #
 # Registry
 # --------------------------------------------------------------------------- #
 
