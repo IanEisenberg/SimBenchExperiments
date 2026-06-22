@@ -166,3 +166,28 @@ val-confirmation candidate for the *grouped* side — orthogonal to the pop-side
 system (cc + abstain). Routing (items on ESS/OpinionQA, cc elsewhere) is learned
 on dev by dataset identity (leakage-safe, datasets reused in val). Recommend one
 val-gated confirmation. No val/test contact yet; required questions untouched.
+
+### Follow-up — does task-context help the POP split? (dev)
+
+`task_context_items` vs `cc` across all 20 pop datasets (≤40/dataset).
+Log: `tmp/ctx_pop.log`.
+
+- **Pooled pop: cc 31.49 → items 31.83, Δ +0.34, 95% CI [−2.00, +2.65]** — a
+  wash. Leakage-safe selective routing: **+0.76, CI [−0.88, +2.43]** — still
+  within noise.
+- **Same survey/knowledge mechanism, same sign as grouped:** helps OSPsychMGKT
+  +8.2, NumberGame +7.3, ESS +6.2, GlobalOpinionQA +6.0, MoralMachine +5.1,
+  TISP +3.6 (12/20 datasets helped >+1) — but cancelled by sharp losses on
+  self-contained behavioral choices: **Choices13k −20.7**, OSPsychBig5 −6.0,
+  Jester −4.9, DICES −3.2. Context helps thematic surveys/batteries, hurts
+  one-shot choice tasks (other gambles as context just add noise).
+- **Cross-split flip:** LatinoBarometro/Afrobarometer *help* on pop (+2.8, +2.2)
+  but *hurt* on grouped (−4.4, −2.8) — same datasets, opposite sign. The only
+  difference is grouped conditions on a demographic segment, so sibling-item
+  context appears to **interfere with demographic conditioning**.
+
+**Net:** task-context is a **grouped-side win, pop-side wash.** It is a
+"survey-context" method — promote on grouped (and optionally route onto specific
+pop survey datasets for a small extra), keep it away from behavioral-choice
+tasks. The pop-side system (cc + abstain, + optional Choices13k→voting) is
+unaffected.
