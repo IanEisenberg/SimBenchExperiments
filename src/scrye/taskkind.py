@@ -37,11 +37,16 @@ KINDS: tuple[str, ...] = (
 
 #: Decision rule: task kind -> intervention name. The RoutingPredictor maps each
 #: name to a concrete Predictor. Derived from the Stage 11–14 dev evidence by
-#: *mechanism*, then validated leave-one-dataset-out in Stage 15.
+#: *mechanism*, validated on dev in Stage 15, and val-confirmed in Stage 16.
+#:
+#: Stage 16 (val): task_context transferred cleanly (surveys +1.57, knowledge
+#: +5.53), but the dev-only `risky_choice -> voting` route FAILED to transfer
+#: (val Choices13k: voting −3.0 vs uniform/abstain +11.1). Voting was dropped;
+#: risky_choice now routes to `abstain` (the champion's val-safe behavior).
 KIND_ROUTES: dict[str, str] = {
     "opinion_survey": "task_context",
     "knowledge": "task_context",
-    "risky_choice": "voting",
+    "risky_choice": "abstain",        # was "voting" — dev-overfit, dropped Stage 16
     "moral_dilemma": "abstain",
     "personality_scale": "base",
     "other": "base",
