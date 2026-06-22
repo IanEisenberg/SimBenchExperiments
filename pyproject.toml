@@ -10,6 +10,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "huggingface-hub>=0.24",
     "tqdm>=4.66",
+    "pyarrow>=24.0.0",
 ]
 
 [project.optional-dependencies]

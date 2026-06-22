@@ -753,6 +753,71 @@ def voter_messages(record: SimBenchRecord, disposition: str) -> list[dict]:
             {"role": "user", "content": user}]
 
 
+def persona_voter_messages(record: SimBenchRecord, persona_text: str) -> list[dict]:
+    """Discrete-vote messages conditioned on a full Nemotron persona narrative.
+
+    The Stage-13 voter ask, but the simulated person is a real census-grounded
+    individual (their multi-paragraph life narrative) rather than a synthetic
+    disposition clause. The persona *replaces* the group prompt: the demographic
+    grounding lives in the description, so we do not restate the segment.
+    """
+    _, year_clause = _population_phrase(record)
+    labels = ", ".join(str(o) for o in record.options)
+    user = (
+        "Here is a description of one specific person:\n\n"
+        f"{persona_text.strip()}\n\n"
+        f"This person is one respondent in a survey{year_clause}.\n\n"
+        f"{record.input_template.strip()}\n\n"
+        "Decide which single option THIS person would most likely choose, based on "
+        "who they are. Do not hedge or give probabilities — make the one choice "
+        "this person commits to.\n"
+        f'Respond with only JSON: {{"choice": "<one of: {labels}>"}}.'
+    )
+    return [{"role": "system", "content": VOTER_SYSTEM},
+            {"role": "user", "content": user}]
+
+
+#: System prompt for the per-persona *distribution* elicitation (Stage 18 Round 2).
+#: The collapse to a single number happens at the POPULATION level (we average
+#: these distributions across the panel), so each person is allowed to carry
+#: genuine within-person uncertainty — but only their *real* uncertainty, not the
+#: model's ignorance about them (which, hedged toward uniform and averaged, would
+#: over-disperse the group estimate, the Stage-03 failure).
+PERSONA_DIST_SYSTEM = (
+    "You simulate one specific, real person taking part in a study. Estimate how "
+    "THIS person would answer. If who they are clearly points to one answer, put "
+    "most of the probability on it — commit to your best reading of them. Only "
+    "spread probability across options when this particular person would genuinely "
+    "be of two minds. Do not flatten toward an even split merely because you are "
+    "unsure about them; give your most informed read of this individual."
+)
+
+
+def persona_dist_messages(record: SimBenchRecord, persona_text: str) -> list[dict]:
+    """Per-persona *distribution* messages conditioned on a Nemotron narrative.
+
+    The Round-2 "soft voter": rather than forcing one option (which discards the
+    person's internal uncertainty and over-concentrates the tally), ask for this
+    person's own probability over the options. The population distribution is the
+    average of these across the panel — the collapse to one number happens once,
+    at the group level, not per individual.
+    """
+    _, year_clause = _population_phrase(record)
+    user = (
+        "Here is a description of one specific person:\n\n"
+        f"{persona_text.strip()}\n\n"
+        f"This person is one respondent in a survey{year_clause}.\n\n"
+        f"{record.input_template.strip()}\n\n"
+        "Estimate the probability that THIS specific person would choose each "
+        "option, based on who they are. Be decided where their background clearly "
+        "points one way; keep probability on more than one option only where this "
+        "person would truly be torn.\n"
+        f"{_json_instruction(record.options)}"
+    )
+    return [{"role": "system", "content": PERSONA_DIST_SYSTEM},
+            {"role": "user", "content": user}]
+
+
 # --------------------------------------------------------------------------- #
 # Task-context prompting (Stage 14)
 # --------------------------------------------------------------------------- #

@@ -46,6 +46,8 @@ from .llm import LLMClient
 from .persona import STRATEGIES
 from .pipeline import Pipeline
 from .predict import (
+    GroundedAveragingPredictor,
+    GroundedVotingPredictor,
     MonteCarloPredictor,
     PostStratificationPredictor,
     Predictor,
@@ -80,6 +82,22 @@ PREDICTOR_REGISTRY: dict[str, Callable[[ClientThunk], Predictor]] = {
     # Monte-Carlo individuals (default N=20); a heavier system — N LLM calls per
     # record. Build directly with MonteCarloPredictor(...) to vary N/temperature.
     "monte_carlo": lambda get_client: MonteCarloPredictor(get_client()),
+    # Grounded Nemotron persona electorate (default K=50); unmatchable segments
+    # fall back to the calibrated_commitment single-call. Build directly with
+    # GroundedVotingPredictor(...) to vary K / bank / fallback.
+    "grounded_voting": lambda get_client: GroundedVotingPredictor(
+        get_client(),
+        fallback=ZeroShotPredictor(
+            get_client(), name="calibrated_commitment", strategy="calibrated_commitment"
+        ),
+    ),
+    # Round-2 variant: average per-persona distributions instead of tallying votes.
+    "grounded_averaging": lambda get_client: GroundedAveragingPredictor(
+        get_client(),
+        fallback=ZeroShotPredictor(
+            get_client(), name="calibrated_commitment", strategy="calibrated_commitment"
+        ),
+    ),
 }
 
 

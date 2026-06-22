@@ -143,6 +143,311 @@ class VotingEnsemblePredictor(Predictor):
         return {opt: value / grand for opt, value in smoothed.items()}
 
 
+class GroundedVotingPredictor(Predictor):
+    """Simulate a population by polling a grounded Nemotron persona electorate.
+
+    The Stage-18 system. Like :class:`VotingEnsemblePredictor`, draws K individuals
+    and tallies one discrete vote each — but the individuals are **real
+    census-grounded personas** (their narratives) sampled from
+    :class:`~scrye.nemotron.PersonaBank`, not synthetic disposition clauses. For an
+    unconditioned (pop) record the panel is a representative sample of US adults; for
+    a segment it is filtered to that segment on the axes Nemotron carries.
+
+    When the segment is unmatchable (pinned on race/income/religion/politics, which
+    Nemotron lacks) or the matched pool is too small, the record is routed to
+    ``fallback`` (a prompt-based predictor) — mirroring
+    :class:`PostStratificationPredictor`'s no-decomposition fallback. ``n_grounded``
+    / ``n_fallback`` record the realized split for the coverage log.
+
+    The K persona calls run concurrently (``max_workers``); the panel is fixed and
+    seeded so every record sharing a segment polls the same people, which keeps the
+    on-disk LLM cache warm and the electorate auditable. ``alpha`` Laplace-smooths
+    the tally so an option with zero votes still carries a little mass.
+    """
+
+    def __init__(
+        self,
+        client: LLMClient,
+        bank=None,
+        k: int = 50,
+        temperature: float = 0.0,
+        base_seed: int = 0,
+        alpha: float = 0.5,
+        min_pool: int = 10,
+        fallback: "Predictor | None" = None,
+        max_workers: int = 16,
+        name: str = "grounded_voting",
+    ) -> None:
+        if bank is None:
+            from .nemotron import default_bank
+
+            bank = default_bank()
+        self.client = client
+        self.bank = bank
+        self.k = k
+        self.temperature = temperature
+        self.base_seed = base_seed
+        self.alpha = alpha
+        self.min_pool = min_pool
+        self.fallback = fallback
+        self.max_workers = max_workers
+        self.name = name
+        self.n_parse_failures = 0
+        self.n_grounded = 0
+        self.n_fallback = 0
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from .persona import persona_voter_messages
+
+        panel = self.bank.panel_for(
+            record, self.k, base_seed=self.base_seed, min_pool=self.min_pool
+        )
+        if not panel:
+            self.n_fallback += 1
+            return self.fallback.predict(record) if self.fallback else _uniform(record)
+
+        self.n_grounded += 1
+
+        def _vote(i_text):
+            i, text = i_text
+            resp = self.client.complete(
+                persona_voter_messages(record, text),
+                temperature=self.temperature,
+                seed=self.base_seed + i,
+            ).text
+            return _parse_vote(resp, record.options)
+
+        workers = max(1, min(self.max_workers, len(panel)))
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            choices = list(ex.map(_vote, enumerate(panel)))
+
+        tally = {opt: 0 for opt in record.options}
+        valid = 0
+        for choice in choices:
+            if choice is None:
+                self.n_parse_failures += 1
+                continue
+            tally[choice] += 1
+            valid += 1
+        if valid == 0:
+            return _uniform(record)
+        smoothed = {opt: tally[opt] + self.alpha for opt in record.options}
+        grand = sum(smoothed.values())
+        return {opt: value / grand for opt, value in smoothed.items()}
+
+
+class EnrichedGroundedPredictor(Predictor):
+    """Weighted average over a worldview-enriched, ideology-calibrated panel.
+
+    The Stage-18 final system. Polls a *fixed* panel of personas each carrying an
+    inferred worldview (see :mod:`scrye.worldview`), and averages their per-persona
+    answer distributions weighted by ``weights`` — post-stratification weights that
+    align the panel's ideology mix to OpinionQA's real marginal. With equal weights
+    it is the un-calibrated ablation. Pop-focused: it uses the fixed panel for every
+    record (the unconditioned US electorate) and ignores ``record.segment``.
+    """
+
+    def __init__(
+        self,
+        client: LLMClient,
+        panel_texts: list[str],
+        weights: list[float] | None = None,
+        temperature: float = 0.0,
+        base_seed: int = 0,
+        max_workers: int = 5,
+        name: str = "enriched_grounded",
+    ) -> None:
+        self.client = client
+        self.panel = list(panel_texts)
+        n = len(self.panel)
+        self.weights = list(weights) if weights is not None else [1.0 / n] * n
+        self.temperature = temperature
+        self.base_seed = base_seed
+        self.max_workers = max_workers
+        self.name = name
+        self.n_parse_failures = 0
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from .persona import persona_dist_messages
+
+        def _draw(i_text):
+            i, text = i_text
+            resp = self.client.complete(
+                persona_dist_messages(record, text),
+                temperature=self.temperature, seed=self.base_seed + i,
+            ).text
+            parsed = _extract_json_object(resp)
+            if not parsed:
+                return None
+            d = {o: max(0.0, float(parsed.get(o, 0.0) or 0.0)) for o in record.options}
+            t = sum(d.values())
+            return {o: d[o] / t for o in record.options} if t > 0 else None
+
+        workers = max(1, min(self.max_workers, len(self.panel)))
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            draws = list(ex.map(_draw, enumerate(self.panel)))
+
+        agg = {o: 0.0 for o in record.options}
+        wsum = 0.0
+        for w, draw in zip(self.weights, draws):
+            if draw is None:
+                self.n_parse_failures += 1
+                continue
+            for o in record.options:
+                agg[o] += w * draw[o]
+            wsum += w
+        if wsum <= 0:
+            return _uniform(record)
+        grand = sum(agg.values())
+        return {o: v / grand for o, v in agg.items()}
+
+
+class GroundedAveragingPredictor(Predictor):
+    """Grounded persona electorate that AVERAGES per-persona distributions.
+
+    The Stage-18 Round-2 system, and the principled counterpart to
+    :class:`GroundedVotingPredictor`. Each persona is asked for *their own*
+    probability over the options (:func:`~scrye.persona.persona_dist_messages`),
+    and the group prediction is the mean of those distributions across the panel.
+
+    Why average rather than tally discrete votes: the population's choice-fraction
+    *is* the average over people of each person's choice-probability, so averaging
+    is the unbiased estimator — sampling/argmax-then-tally only adds variance or
+    discards within-person uncertainty (which over-concentrates the group, as
+    Round 1 showed). The risk it trades into is over-dispersion if the model hedges
+    each persona toward uniform (the Stage-03 failure); the calibrated
+    ``PERSONA_DIST_SYSTEM`` prompt and grounded narratives are what guard against
+    that. Shares the bank, fixed panel, fallback, and concurrency of the voting
+    predictor; ``n_grounded`` / ``n_fallback`` log the coverage split.
+    """
+
+    def __init__(
+        self,
+        client: LLMClient,
+        bank=None,
+        k: int = 50,
+        temperature: float = 0.0,
+        base_seed: int = 0,
+        min_pool: int = 10,
+        fallback: "Predictor | None" = None,
+        max_workers: int = 16,
+        name: str = "grounded_averaging",
+    ) -> None:
+        if bank is None:
+            from .nemotron import default_bank
+
+            bank = default_bank()
+        self.client = client
+        self.bank = bank
+        self.k = k
+        self.temperature = temperature
+        self.base_seed = base_seed
+        self.min_pool = min_pool
+        self.fallback = fallback
+        self.max_workers = max_workers
+        self.name = name
+        self.n_parse_failures = 0
+        self.n_grounded = 0
+        self.n_fallback = 0
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from .persona import persona_dist_messages
+
+        panel = self.bank.panel_for(
+            record, self.k, base_seed=self.base_seed, min_pool=self.min_pool
+        )
+        if not panel:
+            self.n_fallback += 1
+            return self.fallback.predict(record) if self.fallback else _uniform(record)
+
+        self.n_grounded += 1
+
+        def _dist(i_text):
+            i, text = i_text
+            resp = self.client.complete(
+                persona_dist_messages(record, text),
+                temperature=self.temperature,
+                seed=self.base_seed + i,
+            ).text
+            parsed = _extract_json_object(resp)
+            if not parsed:
+                return None
+            draw = {}
+            for opt in record.options:
+                try:
+                    draw[opt] = max(0.0, float(parsed.get(opt, 0.0)))
+                except (TypeError, ValueError):
+                    draw[opt] = 0.0
+            total = sum(draw.values())
+            if total <= 0:
+                return None
+            return {opt: draw[opt] / total for opt in record.options}  # per-person norm
+
+        workers = max(1, min(self.max_workers, len(panel)))
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            draws = list(ex.map(_dist, enumerate(panel)))
+
+        agg = {opt: 0.0 for opt in record.options}
+        valid = 0
+        for draw in draws:
+            if draw is None:
+                self.n_parse_failures += 1
+                continue
+            for opt in record.options:
+                agg[opt] += draw[opt]
+            valid += 1
+        if valid == 0:
+            return _uniform(record)
+        grand = sum(agg.values())
+        return {opt: value / grand for opt, value in agg.items()}
+
+
+class EnsemblePredictor(Predictor):
+    """Blend several predictors' distributions by a fixed weighted average.
+
+    ``predictors`` are run on the same record and their (renormalized) outputs are
+    mixed by ``weights`` (defaults to equal; normalized to sum 1). Useful for
+    combining a bottom-up persona system (good spread / conditioning direction)
+    with a top-down single-call (good location). When the sub-predictors are
+    already cached for a record set, the blend is scored at zero marginal LLM cost,
+    and the mixing weight can be swept on dev (then val-gated).
+    """
+
+    def __init__(self, predictors, weights=None, name: str = "ensemble") -> None:
+        if not predictors:
+            raise ValueError("EnsemblePredictor needs at least one predictor.")
+        self.predictors = list(predictors)
+        if weights is None:
+            weights = [1.0] * len(self.predictors)
+        if len(weights) != len(self.predictors):
+            raise ValueError("weights must match predictors in length.")
+        total = float(sum(weights))
+        if total <= 0:
+            raise ValueError("weights must sum to a positive value.")
+        self.weights = [w / total for w in weights]
+        self.name = name
+
+    def predict(self, record: SimBenchRecord) -> dict[str, float]:
+        agg = {opt: 0.0 for opt in record.options}
+        for w, pred in zip(self.weights, self.predictors):
+            dist = pred.predict(record)
+            sub_total = sum(max(0.0, float(dist.get(opt, 0.0))) for opt in record.options)
+            if sub_total <= 0:
+                continue
+            for opt in record.options:
+                agg[opt] += w * max(0.0, float(dist.get(opt, 0.0))) / sub_total
+        grand = sum(agg.values())
+        if grand <= 0:
+            return _uniform(record)
+        return {opt: value / grand for opt, value in agg.items()}
+
+
 class ZeroShotPredictor(Predictor):
     """Verbalized-distribution zero-shot predictor (the project default).
 
