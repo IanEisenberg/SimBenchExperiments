@@ -26,29 +26,80 @@ nulls excluded; 0 parse failures. The paper predates Gemini Flash-Lite (best mod
 Claude-3.7-Sonnet, 40.80), so our gemini numbers have no paper row — Qwen2.5-72B
 is the shared anchor.
 
-## One-shot TEST — faithful vs final router
+(On the test family-split specifically, faithful @ Qwen2.5-72B gives split-avg
+S = 25.04 — directionally consistent but lower and noisier, with a high 14%
+transient-API-failure rate excluded; the dedicated stratified sample above, at
+1.3% failures, is the clean reproduction.)
 
-Sealed test set, 3592 recs (grouped 1874, pop 1718; required-Q 259). Both systems
-@ `gemini-3.1-flash-lite`. Run: `outputs/runs/2026-06-21-TEST-final.results.json`.
+## One-shot TEST — full lineage
 
-| split | n | faithful (baseline) | **final router** | Δ [95% CI] |
-|---|---|---|---|---|
-| **overall** | 3592 | 35.21 | **40.73** | **+5.52 [+4.29, +6.80]** |
-| grouped | 1874 | 39.19 | 43.45 | +4.26 [+3.09, +5.35] |
-| pop | 1718 | 30.88 | 37.77 | +6.89 [+4.61, +9.25] |
-| **required Qs** | 259 | 51.48 | 54.14 | +2.66 [+0.03, +5.20] |
+Sealed test set, 3592 recs (grouped 1874, pop 1718; required-Q 259). Runs:
+`outputs/runs/2026-06-21-TEST-{final,lineage,faithful-models}.results.json`.
+The intermediary systems and the two baseline models were measured on test as
+**completeness measurement** — the final system was fixed on val before any test
+contact, so this is not selection-on-test.
 
-**The final system beats the SimBench baseline on held-out test by +5.52 overall**
-— every CI excludes 0, including the graded required questions (`trust_president`,
-`gay_rights`, `internet_use`). The method generalized cleanly to test (pop +6.9,
-grouped +4.3), in line with — and on pop exceeding — the val confirmation.
+| system | model | overall | grouped | pop | required |
+|---|---|---|---|---|---|
+| faithful | gemini-2.5-flash-lite | 19.27 | 13.77 | 25.28 | −4.51 |
+| faithful | Qwen2.5-72B-Instruct | 25.40 | 20.97 | 29.10 | −1.26 |
+| faithful | gemini-3.1-flash-lite | 35.21 | 39.19 | 30.88 | 51.48 |
+| anti_flattening | gemini-3.1 | 39.68 | 42.69 | 36.39 | 51.28 |
+| **calibrated_commitment + abstain** | gemini-3.1 | **40.93** | **44.02** | 37.55 | **55.29** |
+| **task-kind router (val-confirmed)** | gemini-3.1 | 40.73 | 43.45 | **37.77** | 54.14 |
 
-## Final system
+**Two honest headlines:**
 
-`RoutingPredictor(LLMTaskClassifier, KIND_ROUTES)` + abstain-floor {OSPsychMACH}
-@ `gemini-3.1-flash-lite`. Routes: opinion_survey/knowledge → task_context,
-risky_choice/moral_dilemma → abstain, personality_scale/other →
-calibrated_commitment.
+1. **The model is the dominant lever.** faithful 2.5 → 3.1-flash-lite is
+   **+15.9 overall / +25.4 grouped** on test; the required (grouped opinion)
+   questions jump from **−4.5 → +51.5** purely from the model swap. gemini-3.1 is
+   dramatically stronger on the demographic surveys than both 2.5 and Qwen-72B.
+   The entire method stack (faithful@3.1 → final) adds **+5.5 overall** on top of
+   that — real and CI-clean over faithful@3.1, but an order of magnitude smaller
+   than the model lever.
+
+2. **The router does NOT beat cc+abstain on test — they are statistically tied.**
+   cc+abstain is marginally ahead on overall (+0.20), grouped (+0.57), and the
+   required questions (+1.15); the router is ahead only on pop (+0.22) — all well
+   within the bootstrap noise (~±1.5). **The router's val advantage (+1.10 pooled,
+   Stage 16) did not transfer**; the task-context routing washed out on held-out
+   test. Per leakage discipline we do **not** re-select the system on test — the
+   router remains the val-confirmed system — but the honest read is that the
+   simpler **cc+abstain** is equivalent here, and the router's extra machinery (a
+   per-item LLM classifier + task-context corpus) buys nothing measurable on test.
+
+**vs faithful @ 3.1 (CI, the headline win):** router overall **+5.52
+[+4.29, +6.80]**, grouped +4.26, pop +6.89, required +2.66 [+0.03, +5.20] — all
+exclude 0. cc+abstain is essentially identical (+5.72 overall).
+
+## Final system — the simpler method comes to the fore
+
+Two systems are statistically equivalent on test (≈40.8 overall):
+
+- **`calibrated_commitment` + `AbstainCalibrator`** (Stage 12) — one prompt + a
+  per-dataset uniform fallback. **No classifier, no per-item routing.**
+- **task-kind router** (Stage 16) — an upfront LLM classifier dispatching to
+  `task_context` / `voting`→`abstain` / `cc` per kind.
+
+The router was the more interesting idea and it **won on val** (+1.10 pooled,
+Stage 16). But that lift **did not transfer to test** — the two tie, with
+`cc+abstain` marginally ahead overall. So for a deployable recommendation the
+**simpler `cc+abstain` leads**: it matches the router's test accuracy at a
+fraction of the inference cost (one call per item, no task classification, no
+sibling-item corpus).
+
+**The val ↔ test conflict** is the honest story here. On dev/val the task-context
+route reliably helped the opinion surveys; the router packaged that into a
+generalizable rule and cleared the val gate. On the sealed test family-split that
+edge vanished — task-context neither helped nor hurt grouped beyond noise. This is
+the textbook reason a held-out test set exists: a small val win, accumulated over
+three val touches, can fail to replicate. The robust, replicated result is the
+**+5.5 method gain over `faithful@3.1`** (shared by both systems) on top of the
+**+15.9 model gain** — not the router-over-`cc+abstain` increment.
+
+Per leakage discipline we do not re-select on test, so the **router remains the
+val-confirmed system of record**; but the **reporting leads with `cc+abstain`** as
+the simpler, equally-good method. Both @ `gemini-3.1-flash-lite`.
 
 ## Validation lineage (held-out val, all @ gemini-3.1-flash-lite)
 
