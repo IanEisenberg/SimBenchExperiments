@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scrye — Feedback Loop Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    padding: 24px 32px 16px;
+    border-bottom: 1px solid #21262d;
+  }
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #e6edf3;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    font-size: 0.82rem;
+    color: #8b949e;
+    margin-top: 4px;
+  }
+
+  .diagram-container {
+    position: relative;
+    width: 100%;
+    padding: 24px;
+  }
+
+  svg#arch {
+    width: 100%;
+    display: block;
+  }
+
+  /* ── Node boxes ── */
+  .node rect {
+    rx: 8;
+    ry: 8;
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .node:hover rect { filter: brightness(1.25); }
+  .node text {
+    fill: #e6edf3;
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    dominant-baseline: middle;
+    text-anchor: middle;
+  }
+  .node .sub {
+    font-size: 9.5px;
+    fill: #8b949e;
+    font-weight: 400;
+  }
+
+  /* ── Section labels ── */
+  .section-label {
+    fill: #30363d;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .section-bg {
+    fill: #161b22;
+    rx: 6;
+    ry: 6;
+  }
+
+  /* ── Edges ── */
+  .edge {
+    fill: none;
+    stroke-width: 1.5;
+    opacity: 0.55;
+  }
+  .edge-survey    { stroke: #4FC3F7; }
+  .edge-behavioral{ stroke: #FF8A65; }
+  .edge-synthetic { stroke: #CE93D8; }
+  .edge-prediction{ stroke: #81C784; }
+  .edge-feedback  { stroke: #EF9A9A; }
+  .edge-centaur   { stroke: #80DEEA; }
+  .edge-gate      { stroke: #FFD54F; }
+
+  /* ── Particles ── */
+  .particle {
+    r: 4;
+    opacity: 0.9;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    position: absolute;
+    bottom: 32px;
+    left: 32px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .legend-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #8b949e;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: #c9d1d9;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Detail panel ── */
+  #detail-panel {
+    display: none;
+    position: fixed;
+    top: 50%;
+    right: 32px;
+    transform: translateY(-50%);
+    width: 300px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  #detail-panel.visible { display: block; }
+  #detail-panel h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #e6edf3;
+    margin-bottom: 6px;
+  }
+  #detail-panel .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  #detail-panel .io-section {
+    margin-bottom: 10px;
+  }
+  #detail-panel .io-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #8b949e;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  #detail-panel .io-value {
+    font-size: 11.5px;
+    color: #c9d1d9;
+    line-height: 1.5;
+  }
+  #detail-panel .rationale {
+    font-size: 11.5px;
+    color: #8b949e;
+    line-height: 1.55;
+    border-top: 1px solid #21262d;
+    padding-top: 10px;
+    margin-top: 6px;
+  }
+  #close-panel {
+    position: absolute;
+    top: 12px; right: 14px;
+    background: none; border: none;
+    color: #8b949e; font-size: 18px;
+    cursor: pointer; line-height: 1;
+  }
+  #close-panel:hover { color: #e6edf3; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Scrye — Commercial Feedback Loop Architecture</h1>
+  <p>Closed-loop system for continuously improving behavioral population simulation &nbsp;·&nbsp; Click any node for details</p>
+</header>
+
+<div class="diagram-container">
+  <svg id="arch" viewBox="0 0 1100 720" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#444c56"/>
+      </marker>
+      <marker id="arrow-survey"     markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
+      <marker id="arrow-behavioral" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FF8A65"/></marker>
+      <marker id="arrow-synthetic"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
+      <marker id="arrow-prediction" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
+      <marker id="arrow-feedback"   markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#EF9A9A"/></marker>
+      <marker id="arrow-centaur"    markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#80DEEA"/></marker>
+      <marker id="arrow-gate"       markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
+    </defs>
+
+    <!-- ═══ Section backgrounds ═══ -->
+    <rect class="section-bg" x="14" y="50" width="220" height="620" opacity="1"/>
+    <text class="section-label" x="124" y="76">Data Sources</text>
+
+    <rect class="section-bg" x="248" y="50" width="340" height="620" opacity="1"/>
+    <text class="section-label" x="418" y="76">Memory &amp; Foundation</text>
+
+    <rect class="section-bg" x="602" y="50" width="280" height="620" opacity="1"/>
+    <text class="section-label" x="742" y="76">Prediction Pipeline</text>
+
+    <rect class="section-bg" x="896" y="50" width="190" height="620" opacity="1"/>
+    <text class="section-label" x="991" y="76">Output &amp; Gate</text>
+
+    <!-- ═══════════════════════════════════════════
+         COL 1 — DATA SOURCES
+    ══════════════════════════════════════════════ -->
+
+    <!-- Revealed Behavior -->
+    <g class="node" id="node-revealed" data-id="revealed">
+      <rect x="28" y="100" width="192" height="60" fill="#1a2332" stroke="#FF8A65"/>
+      <text x="124" y="124">Revealed Behavior</text>
+      <text class="sub" x="124" y="141">Transaction logs · individual events</text>
+    </g>
+
+    <!-- Stated Surveys -->
+    <g class="node" id="node-surveys" data-id="surveys">
+      <rect x="28" y="220" width="192" height="60" fill="#1a2432" stroke="#4FC3F7"/>
+      <text x="124" y="244">Stated Preferences</text>
+      <text class="sub" x="124" y="261">Survey waves · population dists</text>
+    </g>
+
+    <!-- External Signals -->
+    <g class="node" id="node-external" data-id="external">
+      <rect x="28" y="340" width="192" height="60" fill="#1e1e2e" stroke="#555"/>
+      <text x="124" y="364">External Signals</text>
+      <text class="sub" x="124" y="381">Market context · seasonality</text>
+    </g>
+
+    <!-- Survey→Behavioral Bridge -->
+    <g class="node" id="node-bridge" data-id="bridge">
+      <rect x="28" y="470" width="192" height="72" fill="#1e1a2e" stroke="#CE93D8"/>
+      <text x="124" y="496">Survey → Behavioral</text>
+      <text x="124" y="512">Bridge</text>
+      <text class="sub" x="124" y="530">Synthetic pseudo-populations</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════
+         COL 2 — MEMORY + FOUNDATION
+    ══════════════════════════════════════════════ -->
+
+    <!-- L1 Raw Store -->
+    <g class="node" id="node-l1" data-id="l1">
+      <rect x="262" y="100" width="200" height="68" fill="#1a2520" stroke="#81C784"/>
+      <text x="362" y="126">L1 · Raw Outcome Store</text>
+      <text class="sub" x="362" y="143">Append-only · behavioral + survey</text>
+      <text class="sub" x="362" y="157">+ synthetic events (tagged)</text>
+    </g>
+
+    <!-- L2 Prediction Ledger -->
+    <g class="node" id="node-l2" data-id="l2">
+      <rect x="262" y="224" width="200" height="68" fill="#1f1a1a" stroke="#EF9A9A"/>
+      <text x="362" y="250">L2 · Prediction Ledger</text>
+      <text class="sub" x="362" y="267">Stamped before outcomes arrive</text>
+      <text class="sub" x="362" y="281">Outcome linked on arrival</text>
+    </g>
+
+    <!-- L3 Segment Posteriors -->
+    <g class="node" id="node-l3" data-id="l3">
+      <rect x="262" y="348" width="200" height="68" fill="#1a2020" stroke="#80DEEA"/>
+      <text x="362" y="374">L3 · Segment Posteriors</text>
+      <text class="sub" x="362" y="391">EMA-weighted empirical dists</text>
+      <text class="sub" x="362" y="405">Calibration residuals by kind</text>
+    </g>
+
+    <!-- L4 Calibrator Cache -->
+    <g class="node" id="node-l4" data-id="l4">
+      <rect x="262" y="472" width="200" height="68" fill="#211f1a" stroke="#FFD54F"/>
+      <text x="362" y="498">L4 · Calibrator Cache</text>
+      <text class="sub" x="362" y="515">Per-kind route params</text>
+      <text class="sub" x="362" y="529">LoRA adapter weights (gated)</text>
+    </g>
+
+    <!-- Centaur Foundation -->
+    <g class="node" id="node-centaur" data-id="centaur">
+      <rect x="262" y="590" width="312" height="64" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/>
+      <text x="418" y="616">Centaur Behavioral Foundation</text>
+      <text class="sub" x="418" y="633">Fine-tuned on: synthetic (phase 0) → real behavioral (phase 1+)</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════
+         COL 3 — PREDICTION PIPELINE
+    ══════════════════════════════════════════════ -->
+
+    <!-- Task Classifier -->
+    <g class="node" id="node-classifier" data-id="classifier">
+      <rect x="616" y="100" width="252" height="68" fill="#1e1e1a" stroke="#FFD54F"/>
+      <text x="742" y="126">Task Classifier</text>
+      <text class="sub" x="742" y="143">LLMTaskClassifier · 1 cached call/stem</text>
+      <text class="sub" x="742" y="157">opinion / knowledge / risky / moral / other</text>
+    </g>
+
+    <!-- Route Dispatcher -->
+    <g class="node" id="node-router" data-id="router">
+      <rect x="616" y="228" width="252" height="80" fill="#1f1e1a" stroke="#FFD54F"/>
+      <text x="742" y="254">Route Dispatcher</text>
+      <text class="sub" x="742" y="271">opinion/knowledge → task_context</text>
+      <text class="sub" x="742" y="285">risky/moral → abstain (uniform)</text>
+      <text class="sub" x="742" y="299">other → calibrated_commitment</text>
+    </g>
+
+    <!-- Cold Path -->
+    <g class="node" id="node-cold" data-id="cold">
+      <rect x="616" y="370" width="76" height="68" fill="#1a2020" stroke="#80DEEA"/>
+      <text x="654" y="396">Cold</text>
+      <text class="sub" x="654" y="412">n &lt; 100</text>
+      <text class="sub" x="654" y="426">ICL/RAG</text>
+    </g>
+
+    <!-- Warm Path -->
+    <g class="node" id="node-warm" data-id="warm">
+      <rect x="704" y="370" width="76" height="68" fill="#211f1a" stroke="#FFD54F"/>
+      <text x="742" y="396">Warm</text>
+      <text class="sub" x="742" y="412">n ≥ 100</text>
+      <text class="sub" x="742" y="426">Calibrated</text>
+    </g>
+
+    <!-- Hot Path -->
+    <g class="node" id="node-hot" data-id="hot">
+      <rect x="792" y="370" width="76" height="68" fill="#200e0e" stroke="#EF9A9A"/>
+      <text x="830" y="396">Hot</text>
+      <text class="sub" x="830" y="412">n ≥ 10k</text>
+      <text class="sub" x="830" y="426">Centaur</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════
+         COL 4 — OUTPUT + GATE
+    ══════════════════════════════════════════════ -->
+
+    <!-- Prediction Output -->
+    <g class="node" id="node-output" data-id="output">
+      <rect x="910" y="228" width="162" height="60" fill="#152015" stroke="#81C784" stroke-width="2"/>
+      <text x="991" y="252">Predicted Distribution</text>
+      <text class="sub" x="991" y="268">→ stamps L2 Ledger</text>
+    </g>
+
+    <!-- Update Gate -->
+    <g class="node" id="node-gate" data-id="gate">
+      <rect x="910" y="430" width="162" height="110" fill="#221a0a" stroke="#FFD54F" stroke-width="2"/>
+      <text x="991" y="458">Update Gate</text>
+      <text class="sub" x="991" y="476">① Shadow eval (1k preds)</text>
+      <text class="sub" x="991" y="491">② Lift test (Blum-Hardt η)</text>
+      <text class="sub" x="991" y="506">③ Reliability ceiling</text>
+      <text class="sub" x="991" y="521">④ Drift check (PSI)</text>
+      <text class="sub" x="991" y="536">⑤ Human sign-off (fine-tune)</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════
+         EDGES
+    ══════════════════════════════════════════════ -->
+
+    <!-- Revealed → L1 -->
+    <path id="e-rev-l1" class="edge edge-behavioral" marker-end="url(#arrow-behavioral)"
+      d="M220,130 H262"/>
+
+    <!-- Surveys → L1 -->
+    <path id="e-sur-l1" class="edge edge-survey" marker-end="url(#arrow-survey)"
+      d="M220,250 C238,250 248,134 262,134"/>
+
+    <!-- Surveys → Bridge -->
+    <path id="e-sur-bridge" class="edge edge-survey" marker-end="url(#arrow-survey)"
+      d="M124,280 V470"/>
+
+    <!-- External → L3 -->
+    <path id="e-ext-l3" class="edge" stroke="#555" marker-end="url(#arrow)"
+      d="M220,370 H262"/>
+
+    <!-- Bridge → L1 (synthetic) -->
+    <path id="e-bridge-l1" class="edge edge-synthetic" marker-end="url(#arrow-synthetic)"
+      d="M220,500 C238,500 248,155 262,155"/>
+
+    <!-- Bridge → Centaur (synthetic training) -->
+    <path id="e-bridge-centaur" class="edge edge-synthetic" marker-end="url(#arrow-synthetic)"
+      d="M220,542 C238,600 248,622 262,622"/>
+
+    <!-- L1 → L2 -->
+    <path id="e-l1-l2" class="edge edge-feedback" marker-end="url(#arrow-feedback)"
+      d="M362,168 V224"/>
+
+    <!-- L2 → L3 -->
+    <path id="e-l2-l3" class="edge edge-feedback" marker-end="url(#arrow-feedback)"
+      d="M362,292 V348"/>
+
+    <!-- L3 → L4 -->
+    <path id="e-l3-l4" class="edge edge-gate" marker-end="url(#arrow-gate)"
+      d="M362,416 V472"/>
+
+    <!-- L3 → Cold (retrieval) -->
+    <path id="e-l3-cold" class="edge edge-centaur" marker-end="url(#arrow-centaur)"
+      d="M462,382 C530,382 580,404 616,404"/>
+
+    <!-- L4 → Warm (calibrator) -->
+    <path id="e-l4-warm" class="edge edge-gate" marker-end="url(#arrow-gate)"
+      d="M462,506 C550,506 640,440 704,420"/>
+
+    <!-- Centaur → Hot (backbone) -->
+    <path id="e-centaur-hot" class="edge edge-centaur" marker-end="url(#arrow-centaur)"
+      d="M574,610 C590,610 800,500 830,438"/>
+
+    <!-- Centaur → Warm (backbone prior) -->
+    <path id="e-centaur-warm" class="edge edge-centaur" marker-end="url(#arrow-centaur)"
+      d="M460,595 C530,570 680,480 742,438"/>
+
+    <!-- L1 → Classifier (context for routing) -->
+    <path id="e-l1-class" class="edge edge-survey" stroke-dasharray="4,3" marker-end="url(#arrow-survey)"
+      d="M462,130 H616"/>
+
+    <!-- Classifier → Router -->
+    <path id="e-class-router" class="edge edge-gate" marker-end="url(#arrow-gate)"
+      d="M742,168 V228"/>
+
+    <!-- Router → Cold -->
+    <path id="e-router-cold" class="edge edge-gate" marker-end="url(#arrow-gate)"
+      d="M700,308 C676,308 654,340 654,370"/>
+
+    <!-- Router → Warm -->
+    <path id="e-router-warm" class="edge edge-gate" marker-end="url(#arrow-gate)"
+      d="M742,308 V370"/>
+
+    <!-- Router → Hot -->
+    <path id="e-router-hot" class="edge edge-gate" marker-end="url(#arrow-gate)"
+      d="M784,308 C808,308 830,340 830,370"/>
+
+    <!-- Cold → Output -->
+    <path id="e-cold-out" class="edge edge-prediction" marker-end="url(#arrow-prediction)"
+      d="M692,395 C840,370 910,290 910,270"/>
+
+    <!-- Warm → Output -->
+    <path id="e-warm-out" class="edge edge-prediction" marker-end="url(#arrow-prediction)"
+      d="M780,395 C860,370 910,295 910,275"/>
+
+    <!-- Hot → Output -->
+    <path id="e-hot-out" class="edge edge-prediction" marker-end="url(#arrow-prediction)"
+      d="M868,400 C895,390 910,320 910,288"/>
+
+    <!-- Output → L2 (feedback stamp) -->
+    <path id="e-out-l2" class="edge edge-feedback" stroke-dasharray="5,3" marker-end="url(#arrow-feedback)"
+      d="M910,268 C880,268 820,268 540,258 C500,256 470,258 462,258"/>
+
+    <!-- Gate → L4 promote -->
+    <path id="e-gate-l4" class="edge edge-gate" stroke-dasharray="5,3" marker-end="url(#arrow-gate)"
+      d="M910,485 C880,485 780,520 462,520"/>
+
+    <!-- Gate → Centaur promote -->
+    <path id="e-gate-centaur" class="edge edge-gate" stroke-dasharray="5,3" marker-end="url(#arrow-gate)"
+      d="M910,540 C890,600 800,630 574,628"/>
+
+    <!-- Output → Gate (triggers eval) -->
+    <path id="e-out-gate" class="edge edge-feedback" stroke-dasharray="4,3" marker-end="url(#arrow-feedback)"
+      d="M991,288 V430"/>
+
+    <!-- Cross-tenant → Centaur (label) -->
+    <path id="e-cross-centaur" class="edge edge-centaur" stroke-dasharray="6,3" marker-end="url(#arrow-centaur)"
+      d="M124,600 C180,640 230,650 262,640"/>
+    <text x="124" y="620" font-size="9" fill="#80DEEA" opacity="0.7" text-anchor="middle">cross-tenant</text>
+    <text x="124" y="632" font-size="9" fill="#80DEEA" opacity="0.7" text-anchor="middle">anonymized agg.</text>
+
+    <!-- ═══════════════════════════════════════════
+         PARTICLES GROUP (filled by JS)
+    ══════════════════════════════════════════════ -->
+    <g id="particles"></g>
+
+  </svg>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-title">Signal Types</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Stated / survey data</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#FF8A65"></div>Revealed / behavioral data</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Synthetic behavioral (bridge)</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Prediction output</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback / ledger loop</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Centaur foundation flows</div>
+    <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Update gate / calibration</div>
+  </div>
+</div>
+
+<!-- Detail panel -->
+<div id="detail-panel">
+  <button id="close-panel">×</button>
+  <div id="detail-badge" class="badge"></div>
+  <h3 id="detail-title"></h3>
+  <div class="io-section">
+    <div class="io-label">In</div>
+    <div class="io-value" id="detail-in"></div>
+  </div>
+  <div class="io-section">
+    <div class="io-label">Out</div>
+    <div class="io-value" id="detail-out"></div>
+  </div>
+  <div class="rationale" id="detail-rationale"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  Node metadata for the detail panel
+// ─────────────────────────────────────────────
+const NODE_DATA = {
+  revealed: {
+    title: 'Revealed Behavior',
+    badge: 'Data Source', badgeColor: '#FF8A65',
+    in: 'Transaction logs from the client: user_id, item_id, action type, offer context (price, promotion, placement), timestamp.',
+    out: 'Normalized behavioral events → L1 Raw Outcome Store. Offer context deconfounded before downstream calibration use.',
+    rationale: 'The most ecologically valid signal — what people actually did under real stakes. LLMs are out-of-distribution on this signal; calibration is required. Individual-level sequences unlock personalization, causality, and temporal dynamics that survey distributions cannot.'
+  },
+  surveys: {
+    title: 'Stated Preferences',
+    badge: 'Data Source', badgeColor: '#4FC3F7',
+    in: 'Survey waves: response distributions per question × segment, with quality metadata (n, recency, fielding method, response rate).',
+    out: 'Aggregate distributions → L1. Also feeds the Survey→Behavioral Bridge. Quality-weighted soft prior for cold-path conditioning.',
+    rationale: 'High LLM nativeness — surveys are what the model was pretrained on. Stage 06 showed well-prompted survey prediction is already well-calibrated without post-hoc correction. Serves as prior, not calibration target, for behavioral prediction.'
+  },
+  external: {
+    title: 'External Signals',
+    badge: 'Data Source', badgeColor: '#666',
+    in: 'Market context, competitive pricing, seasonality calendars, macroeconomic indicators.',
+    out: 'Contextual features → L3 Segment Posteriors (as conditioning covariates). Used to detect and attribute outcome drift.',
+    rationale: 'Purchase propensity is sensitive to context that neither surveys nor individual history fully captures. External signals improve confound attribution and drift detection without requiring private customer data.'
+  },
+  bridge: {
+    title: 'Survey → Behavioral Bridge',
+    badge: 'Bootstrap', badgeColor: '#CE93D8',
+    in: 'Survey distributions + demographic segment definitions. Attitude-behavior correlation prior (r ≈ 0.4–0.6).',
+    out: 'Synthetic pseudo-transaction logs tagged with provenance. Phase 0 Centaur training corpus. L3 cold-start posteriors.',
+    rationale: 'Solves the cold-start problem: real behavioral data starts at zero on day one. Sampling N synthetic individuals from survey distributions and assigning behavioral propensities gives a trainable corpus from day one. Fidelity is bounded by the attitude-behavior correlation; the gap closes as real data arrives.'
+  },
+  l1: {
+    title: 'L1 — Raw Outcome Store',
+    badge: 'Memory', badgeColor: '#81C784',
+    in: 'All behavioral events, survey wave distributions, and synthetic bridge events.',
+    out: 'Source for L2 outcome linking, L3 aggregation, Centaur training corpus, and retrospective audit.',
+    rationale: 'Append-only and permanent — the audit log. If downstream aggregation logic changes, L1 can be reprocessed from scratch. GDPR compliance via per-tenant encryption key revocation (no deletion needed).'
+  },
+  l2: {
+    title: 'L2 — Prediction Ledger',
+    badge: 'Memory', badgeColor: '#EF9A9A',
+    in: 'Every prediction stamped before its outcome arrives: spec_hash, task_kind, segment, predicted distribution, timestamp. Outcome linked later.',
+    out: 'Paired (prediction, outcome) records for calibration error computation, lift testing, and shadow evaluation.',
+    rationale: 'The key abstraction preventing data snooping. Without pre-stamping, all calibration fitting is retrospective and trivially gameable. The same discipline enforced in Part I\'s dev/val/test protocol — now operationalized at inference time.'
+  },
+  l3: {
+    title: 'L3 — Segment Posterior Store',
+    badge: 'Memory', badgeColor: '#80DEEA',
+    in: 'L1 events aggregated on schedule or volume trigger.',
+    out: 'EMA-weighted empirical distributions per segment × task-kind × context bucket. Calibration residuals. Cold-path retrieval target.',
+    rationale: 'The living summary of learned distributions. EMA weighting (λ=0.9 weekly) tracks trend naturally without requiring explicit drift detection in the retrieval path. Provides the k-NN retrieval target for cold-path predictions on new segments.'
+  },
+  l4: {
+    title: 'L4 — Calibrator Cache',
+    badge: 'Memory', badgeColor: '#FFD54F',
+    in: 'Calibration residuals from L3. Gate-approved updates only.',
+    out: 'Per-kind route params (temperature, segment shift vectors). LoRA adapter weights (human-gated). Versioned, 30-day rollback.',
+    rationale: 'Operational artifact for the warm and hot paths. Never updated without the five-step update gate. Every version retained for 30 days; auto-rollback fires if production TVD rises >2σ in a 500-prediction trailing window.'
+  },
+  centaur: {
+    title: 'Centaur Behavioral Foundation',
+    badge: 'Foundation Model', badgeColor: '#80DEEA',
+    in: 'Phase 0: synthetic behavioral (bridge) + Psych-101 cognitive + SimBench pseudo-behavioral. Phase 1+: anonymized cross-tenant real behavioral outcomes.',
+    out: 'Better zero-shot behavioral prior for warm and hot paths. Shared across tenants via weights, not data.',
+    rationale: 'Following Binz et al. (2024): fine-tuning on behavioral data encodes shared decision-making structure in weights, generalizing across tasks. Cross-domain transfer to e-commerce is an empirical question — validated on a held-out cross-tenant test before asserting transfer. The only principled cross-tenant learning mechanism.'
+  },
+  classifier: {
+    title: 'Task Classifier',
+    badge: 'Routing', badgeColor: '#FFD54F',
+    in: 'Question stem + respondent/survey context. One LLM call per unique stem; memoized in-process + on-disk cache.',
+    out: 'Task kind: opinion_survey / knowledge / risky_choice / moral_dilemma / personality_scale / other.',
+    rationale: 'Validated in Stage 15/16: LLMTaskClassifier generalizes across datasets with zero per-dataset parameters. The classifier sees question content, not dataset identity — so an unseen dataset of a known kind is handled correctly from day one.'
+  },
+  router: {
+    title: 'Route Dispatcher',
+    badge: 'Routing', badgeColor: '#FFD54F',
+    in: 'Task kind from classifier. Data volume from L3/L4.',
+    out: 'Dispatches to: task_context (ICL siblings), abstain (uniform), calibrated_commitment (base), or behavioral-specific intervention.',
+    rationale: 'KIND_ROUTES is the val-confirmed dispatch table from Stage 16. Val grouped +1.89, pooled +1.10 over the prior champion. Voting overfit dev and was dropped — the gate does its job. Routes are configurable per deployment; different commercial contexts have different optimal maps.'
+  },
+  cold: {
+    title: 'Cold Path (n < 100)',
+    badge: 'Inference', badgeColor: '#80DEEA',
+    in: 'Query + task kind + segment. L3 retrieval target (k-NN by demographic similarity).',
+    out: 'LLM prediction using retrieved segment posteriors as few-shot context.',
+    rationale: 'The default for new tenants and segments. Retrieval from L3 ensures predictions are anchored to real-world distributions even when no outcomes exist for this specific segment. For opinion tasks, this is the task_context route from Part I.'
+  },
+  warm: {
+    title: 'Warm Path (n ≥ 100)',
+    badge: 'Inference', badgeColor: '#FFD54F',
+    in: 'Query + Centaur backbone prior + L4 calibrator params.',
+    out: 'Calibrated predicted distribution. Per-kind calibration: logistic recalibration for behavioral propensity; entropy-conditioned temperature for opinion tasks if needed.',
+    rationale: 'Calibration is warranted where the LLM is genuinely OOD — revealed behavioral outcomes. Stage 06 showed calibration is NOT needed for well-prompted survey predictions. The warm path applies calibration selectively by task kind.'
+  },
+  hot: {
+    title: 'Hot Path (n ≥ 10k, stable)',
+    badge: 'Inference', badgeColor: '#EF9A9A',
+    in: 'Query + Centaur backbone + per-tenant LoRA adapter (from L4).',
+    out: 'Fine-tuned prediction with tenant-specific behavioral structure encoded.',
+    rationale: 'Last resort, not default. Only when calibration has plateaued, volume is sufficient, and the update gate passes with human sign-off. LoRA adapter encodes residual between Centaur backbone and tenant-specific outcomes — much smaller target than fine-tuning from scratch.'
+  },
+  output: {
+    title: 'Predicted Distribution',
+    badge: 'Output', badgeColor: '#81C784',
+    in: 'Ranked outputs from cold / warm / hot paths.',
+    out: 'Predicted probability distribution over outcome options. Simultaneously stamped to L2 Prediction Ledger.',
+    rationale: 'Every prediction is logged to L2 before the outcome arrives — this is the non-negotiable invariant that makes honest backtesting possible. The spec_hash in the ledger entry traces back to the exact pipeline configuration that produced this prediction.'
+  },
+  gate: {
+    title: 'Update Gate',
+    badge: 'Guardrail', badgeColor: '#FFD54F',
+    in: 'Challenger (new calibrator/adapter). Champion (current L4). L2 holdout outcomes.',
+    out: 'PASS → promote challenger to L4 / Centaur. FAIL → keep champion; log challenger result.',
+    rationale: '5-step gate: ① shadow eval (≥1k preds / 2 weeks), ② lift test (Δ > Blum-Hardt η), ③ reliability ceiling check (no fitting of sampling noise), ④ drift check (PSI), ⑤ human sign-off for fine-tune ships. The same noise-floor principle as Part I\'s LadderGate bounds generalization error under adaptive evaluation.'
+  }
+};
+
+// ─────────────────────────────────────────────
+//  Click handler for nodes
+// ─────────────────────────────────────────────
+const panel   = document.getElementById('detail-panel');
+const pTitle  = document.getElementById('detail-title');
+const pBadge  = document.getElementById('detail-badge');
+const pIn     = document.getElementById('detail-in');
+const pOut    = document.getElementById('detail-out');
+const pRat    = document.getElementById('detail-rationale');
+
+document.querySelectorAll('.node').forEach(el => {
+  el.addEventListener('click', () => {
+    const id = el.getAttribute('data-id');
+    const d  = NODE_DATA[id];
+    if (!d) return;
+    pTitle.textContent        = d.title;
+    pBadge.textContent        = d.badge;
+    pBadge.style.background   = d.badgeColor + '22';
+    pBadge.style.color        = d.badgeColor;
+    pBadge.style.border       = `1px solid ${d.badgeColor}55`;
+    pIn.textContent           = d.in;
+    pOut.textContent          = d.out;
+    pRat.textContent          = d.rationale;
+    panel.classList.add('visible');
+  });
+});
+
+document.getElementById('close-panel').addEventListener('click', () => {
+  panel.classList.remove('visible');
+});
+
+// ─────────────────────────────────────────────
+//  Particle animation along SVG paths
+// ─────────────────────────────────────────────
+const PARTICLE_DEFS = [
+  { edgeId: 'e-rev-l1',       color: '#FF8A65', speed: 0.012, delay: 0    },
+  { edgeId: 'e-sur-l1',       color: '#4FC3F7', speed: 0.010, delay: 0.3  },
+  { edgeId: 'e-sur-bridge',   color: '#4FC3F7', speed: 0.008, delay: 0.6  },
+  { edgeId: 'e-bridge-l1',    color: '#CE93D8', speed: 0.009, delay: 0.2  },
+  { edgeId: 'e-bridge-centaur',color:'#CE93D8', speed: 0.007, delay: 0.8  },
+  { edgeId: 'e-l1-l2',        color: '#EF9A9A', speed: 0.011, delay: 0.4  },
+  { edgeId: 'e-l2-l3',        color: '#EF9A9A', speed: 0.011, delay: 0.7  },
+  { edgeId: 'e-l3-l4',        color: '#FFD54F', speed: 0.010, delay: 0.5  },
+  { edgeId: 'e-l3-cold',      color: '#80DEEA', speed: 0.012, delay: 0.1  },
+  { edgeId: 'e-l4-warm',      color: '#FFD54F', speed: 0.010, delay: 0.9  },
+  { edgeId: 'e-centaur-hot',  color: '#80DEEA', speed: 0.008, delay: 0.35 },
+  { edgeId: 'e-centaur-warm', color: '#80DEEA', speed: 0.009, delay: 0.65 },
+  { edgeId: 'e-l1-class',     color: '#4FC3F7', speed: 0.013, delay: 0.15 },
+  { edgeId: 'e-class-router', color: '#FFD54F', speed: 0.012, delay: 0.0  },
+  { edgeId: 'e-router-cold',  color: '#FFD54F', speed: 0.013, delay: 0.2  },
+  { edgeId: 'e-router-warm',  color: '#FFD54F', speed: 0.013, delay: 0.45 },
+  { edgeId: 'e-router-hot',   color: '#FFD54F', speed: 0.013, delay: 0.7  },
+  { edgeId: 'e-cold-out',     color: '#81C784', speed: 0.012, delay: 0.25 },
+  { edgeId: 'e-warm-out',     color: '#81C784', speed: 0.012, delay: 0.50 },
+  { edgeId: 'e-hot-out',      color: '#81C784', speed: 0.012, delay: 0.75 },
+  { edgeId: 'e-out-l2',       color: '#EF9A9A', speed: 0.007, delay: 0.0  },
+  { edgeId: 'e-gate-l4',      color: '#FFD54F', speed: 0.007, delay: 0.5  },
+  { edgeId: 'e-gate-centaur', color: '#FFD54F', speed: 0.006, delay: 0.8  },
+  { edgeId: 'e-out-gate',     color: '#EF9A9A', speed: 0.009, delay: 0.3  },
+  { edgeId: 'e-cross-centaur',color: '#80DEEA', speed: 0.008, delay: 0.1  },
+];
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const particleGroup = document.getElementById('particles');
+
+// Create one particle per edge definition
+const particles = PARTICLE_DEFS.map(def => {
+  const path = document.getElementById(def.edgeId);
+  if (!path) return null;
+  const len = path.getTotalLength();
+
+  const circle = document.createElementNS(svgNS, 'circle');
+  circle.setAttribute('r', '4');
+  circle.setAttribute('fill', def.color);
+  circle.setAttribute('opacity', '0.85');
+  particleGroup.appendChild(circle);
+
+  return { path, len, circle, speed: def.speed, t: def.delay % 1 };
+}).filter(Boolean);
+
+// Animation loop
+function animate() {
+  particles.forEach(p => {
+    p.t = (p.t + p.speed) % 1;
+    try {
+      const pt = p.path.getPointAtLength(p.t * p.len);
+      p.circle.setAttribute('cx', pt.x);
+      p.circle.setAttribute('cy', pt.y);
+    } catch(e) { /* path may not be ready */ }
+  });
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
