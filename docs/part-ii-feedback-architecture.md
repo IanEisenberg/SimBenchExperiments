@@ -1,373 +1,665 @@
 # Part II — Feedback Mechanism Architecture
 
-**Date:** 2026-06-21  
-**Status:** Design document (no implementation required)  
-**Context:** Scrye sports e-commerce simulator receiving real-world outcomes for the first time.
+**Date:** 2026-06-21 · **Status:** Design document (no implementation required)
+**Context:** Commercial deployment of the Scrye population simulator; real-world outcomes begin arriving.
 
 ---
 
 ## Executive Summary
 
-**What Part I established.** The validated system is `anti_flattening` @ `gemini-3.1-flash-lite` with no post-hoc calibration (identity calibrator). On the held-out validation set it scores **53.0** grouped [CI: 51.5–54.6], a **+6.0 point advantage** over the SimBench-faithful baseline (47.0 [45.0–48.8]) — a gap that held and grew out-of-sample, clearing the noise floor of 1.9 points. The Stage 06 calibration sweep across 14 configurations (temperature scaling, entropy-adaptive temperature, Dirichlet smoothing) returned a clean negative: every calibrator was within noise or worse than identity. The conclusion is that `anti_flattening` — a within-group-diversity framing that instructs the model to represent the full spread of opinion rather than a representative individual — already produces well-calibrated distributional predictions on its native domain (stated preferences). Post-hoc correction adds nothing.
+Part I built and validated a methodology for predicting survey response distributions using LLMs. The validated system — a task-kind router that dispatches to the right prompt intervention based on question type, confirmed on held-out val at **55.57 grouped** (+1.89 over the prior champion) — is the empirical foundation for this design. But it is important to be precise about what that validates: a method for matching population-level opinion distributions over discrete survey options. The commercial system described here deals with a qualitatively richer problem — individual-level behavioral prediction from transaction logs — where the data granularity, signal complexity, and modeling requirements are all different.
 
-**The core insight that drives Part II.** The Part I negative calibration result is architecturally important, not just a null finding to file away. It tells us precisely *where* the LLM is already calibrated (attitude and opinion distributions, which live in its training distribution) and therefore where calibration becomes critical when we extend to a commercial setting: **revealed economic behavior** — purchases, choices under real monetary stakes — is systematically out-of-distribution for a text-pretrained model. The value-action gap is the central design constraint. The architecture below routes signals by this distinction rather than treating all incoming data uniformly.
+What transfers from Part I is not the specific numbers but the *methodology*: the principle that different task types warrant different interventions (routing), the discipline of locking decisions before seeing outcomes (prediction ledger), the insistence on held-out validation before shipping updates (gated pipeline), and the honest accounting of where the model is already well-calibrated vs. where it needs correction.
 
-**Two central bets for the commercial system:**
+Three structural bets define this architecture:
 
-1. **Method validation over model-specificity.** The Part I result demonstrates a method — within-group-diversity elicitation — that transfers across models and question families. The commercial architecture generalizes this: the *method* for learning from behavioral feedback (the tiered memory, the prediction ledger, the gated update protocol) is designed to be portable across tenants and engagement types, so that each new engagement benefits from validated methodology even though it contributes no data to any other. This is the honest flywheel: method quality compounds, not data.
+**1. Task-kind routing as a generalizable architecture lever.** Part I demonstrated that a question-content classifier dispatching to task-appropriate interventions outperforms any single uniform approach, with zero per-dataset tuning for the positive routes. In the commercial system, this principle extends: behavioral prediction tasks are also not uniform, and a routing layer that dispatches by prediction task type — purchase propensity, response-to-offer, segment comparison, churn prediction — will outperform a single model applied uniformly. The routing table is a first-class configurable artifact per deployment.
 
-2. **Behavioral foundation model (Centaur-style) as the shared prior.** A text-pretrained LLM carries a strong prior over stated preferences but a weak one over revealed behavior. A foundation model additionally fine-tuned on anonymized cross-tenant behavioral outcome data — following Binz et al. (2024), who demonstrated strong generalization from behavioral fine-tuning on cognitive tasks — can materially improve the zero-shot prior for purchase propensity prediction before any per-tenant calibration is applied. This is the one principled mechanism by which cross-tenant learning is legitimate: it encodes shared behavioral structure in model weights rather than pooling customer records. The cross-domain generalizability claim (from cognitive tasks to e-commerce behavioral data) is explicitly an empirical question, not a design assumption — the architecture includes a held-out test of that claim across at least two distinct engagement types before any transfer is asserted.
+**2. Survey-to-behavioral bridge for Centaur bootstrap.** Before real transaction data accumulates, we are not starting from nothing: we have survey distributions. These can be transformed into synthetic pseudo-populations of behavioral choices — sampling N individuals from each distribution, assigning demographic profiles and plausible behavioral propensities, constructing pseudo-transaction logs with calibrated noise. This synthetic corpus bootstraps the Centaur training from day one, with a known fidelity gap to be measured and closed as real data arrives.
 
-**The resulting system** is a four-tier compounding memory stack (raw store → prediction ledger → segment posteriors → calibrator cache), a three-tier prediction pipeline (cold ICL → warm calibrated zero-shot → hot fine-tune), and a five-step update gate that applies the same Blum-Hardt noise-floor condition used in Part I's experiment protocol — guaranteeing that updates ship only when improvement is real, not sampling noise.
-
----
-
-## The Scenario
-
-The simulator has been running as a research benchmark (Part I): given a survey question and demographic segment, predict the population-level response distribution. Now the commercial engagement goes live: a sports e-commerce partner begins returning **revealed behavior** (transaction logs) and **stated responses** (new survey waves). The system must compound these signals into continuously improving predictions.
-
-The Stage 06 calibration negative result is load-bearing for what follows: the LLM's distribution estimates are already well-calibrated on their native domain (text about attitudes and opinions). The calibration gap opens where they aren't — revealed economic behavior. That asymmetry drives the entire architecture.
+**3. Centaur-style behavioral foundation model as the shared prior.** Following Binz et al. (2024), a foundation model fine-tuned on behavioral outcome data learns structural properties of human decision-making that generalize across tasks and populations — encoding this in weights rather than records, which is the only principled form of cross-tenant learning. The cross-domain generalizability from cognitive tasks (Psych-101) to e-commerce behavior is an empirical question; the architecture mandates testing it before asserting it.
 
 ---
 
-## Architecture Overview
+## 1. What Part I Established — and Its Scope
+
+### The Validated System
+
+The final val-confirmed system (Stage 16) is:
 
 ```
-══════════════════════════════════════════════════════════════════
-  DATA INGESTION
-══════════════════════════════════════════════════════════════════
-
-  Revealed Behavior          Stated Responses
-  (transaction logs)         (survey waves)
-       │                           │
-       ▼                           ▼
-  ┌─────────────────┐       ┌──────────────────┐
-  │ Behavioral ETL  │       │  Survey ETL       │
-  │ - normalize     │       │  - aggregate to   │
-  │   offer context │       │    distributions  │
-  │ - flag promotns │       │  - attach quality │
-  │ - dedup         │       │    metadata (n,   │
-  └────────┬────────┘       │    recency, wave) │
-           │                └───────┬────────── ┘
-           │                        │
-           ▼                        ▼
-
-══════════════════════════════════════════════════════════════════
-  COMPOUNDING MEMORY (per-tenant, data-isolated)
-══════════════════════════════════════════════════════════════════
-
-  ┌──────────────────────────────────────────────────────────┐
-  │  L1 — Raw Outcome Store (append-only, permanent)         │
-  │  ├── behavioral_events: {user_id, item_id, action,       │
-  │  │                        offer_context, timestamp}       │
-  │  └── survey_responses:  {wave_id, item_id, dist,         │
-  │                           segment_metadata, n}            │
-  └──────────────────────┬───────────────────────────────────┘
-                         │ triggers (on schedule or volume)
-                         ▼
-  ┌──────────────────────────────────────────────────────────┐
-  │  L2 — Prediction Ledger (written at prediction time)     │
-  │  ├── prediction:  {id, spec_hash, question, segment,     │
-  │  │                  predicted_dist, timestamp}            │
-  │  └── outcome:     {prediction_id, ground_truth,          │
-  │                    outcome_source}  ← linked on arrival  │
-  └──────────────────────┬───────────────────────────────────┘
-                         │ aggregated on schedule
-                         ▼
-  ┌──────────────────────────────────────────────────────────┐
-  │  L3 — Segment Posterior Store                            │
-  │  ├── empirical_dists: per-segment × question-family      │
-  │  │    (exponential moving window; recent = higher weight) │
-  │  └── calibration_residuals: {segment, family,            │
-  │         tvd_error, entropy_gap, n_outcomes}              │
-  └──────────────────────┬───────────────────────────────────┘
-                         │ when update gate passes
-                         ▼
-  ┌──────────────────────────────────────────────────────────┐
-  │  L4 — Calibrator Cache (versioned, rollback-able)        │
-  │  ├── calibrator_params: entropy-conditioned temperature  │
-  │  │    + segment shift vectors (per tenant)               │
-  │  └── adapter_weights: LoRA weights (only if fine-tune    │
-  │       gate has been passed; rare; human-gated)           │
-  └──────────────────────┬───────────────────────────────────┘
-                         │
-                         ▼
-
-══════════════════════════════════════════════════════════════════
-  PREDICTION PIPELINE (at inference time)
-══════════════════════════════════════════════════════════════════
-
-  Query arrives: {question, segment, offer_context}
-       │
-       ▼
-  ┌────────────────────────────────────────────────────────────┐
-  │  Route by signal type                                      │
-  │                                                            │
-  │  Stated preference  ──────────────┐                        │
-  │  (survey-style question)          │                        │
-  │                                   ▼                        │
-  │                          ┌─────────────────┐              │
-  │                          │ COLD / WARM PATH │              │
-  │                          │ ICL + LLM prior  │              │
-  │                          │ (already well-   │              │
-  │                          │  calibrated;     │              │
-  │                          │  Stage 06 result)│              │
-  │                          └────────┬─────────┘              │
-  │                                   │                        │
-  │  Revealed behavior  ──────────────┤                        │
-  │  (purchase propensity)            │                        │
-  │         │                         │                        │
-  │         ▼                         │                        │
-  │  ┌──────────────────────┐         │                        │
-  │  │  Data volume check   │         │                        │
-  │  │  against L3 + L4     │         │                        │
-  │  └──────┬───────────────┘         │                        │
-  │         │                         │                        │
-  │    n < 100 outcomes               │                        │
-  │         │                         │                        │
-  │         ▼                         │                        │
-  │  ┌──────────────────┐             │                        │
-  │  │  COLD PATH       │             │                        │
-  │  │  Retrieve nearest│             │                        │
-  │  │  segment from L3 │             │                        │
-  │  │  (k-NN by demo-  │             │                        │
-  │  │  graphic profile)│             │                        │
-  │  └──────┬───────────┘             │                        │
-  │         │                         │                        │
-  │   n ≥ 100 outcomes               │                        │
-  │         │                         │                        │
-  │         ▼                         │                        │
-  │  ┌──────────────────┐             │                        │
-  │  │  WARM PATH       │             │                        │
-  │  │  LLM zero-shot   │             │                        │
-  │  │  + L4 calibrator │             │                        │
-  │  │  (temp scaling + │             │                        │
-  │  │  segment delta)  │             │                        │
-  │  └──────┬───────────┘             │                        │
-  │         │                         │                        │
-  │  n ≥ 10k AND stable               │                        │
-  │  AND calibration ceiling          │                        │
-  │         │                         │                        │
-  │         ▼                         │                        │
-  │  ┌──────────────────┐             │                        │
-  │  │  HOT PATH        │             │                        │
-  │  │  LoRA adapter    │             │                        │
-  │  │  (human-gated    │             │                        │
-  │  │  ship)           │             │                        │
-  │  └──────┬───────────┘             │                        │
-  │         └─────────────────────────┘                        │
-  └────────────────────────────────────────────────────────────┘
-       │
-       ▼
-  Predicted distribution → log to L2 Prediction Ledger
-
-══════════════════════════════════════════════════════════════════
-  UPDATE GATE (before any L4 change ships)
-══════════════════════════════════════════════════════════════════
-
-  ┌──────────────────────────────────────────────────────────┐
-  │  1. Shadow evaluation (challenger runs in shadow for     │
-  │     ≥ 1k predictions or 2 weeks alongside champion)      │
-  │                                                          │
-  │  2. Lift test on L2 holdout (never used in calibration)  │
-  │     Δ TVD must exceed eta = f(bootstrap variance on     │
-  │     holdout) — the Blum-Hardt ladder condition           │
-  │                                                          │
-  │  3. Reliability ceiling check: claimed improvement must  │
-  │     not exceed human sampling noise floor (bootstrap CI  │
-  │     on the ground-truth distribution's finite-n noise)   │
-  │                                                          │
-  │  4. Drift check: PSI on input distribution and outcome   │
-  │     drift since calibrator was last trained              │
-  │                                                          │
-  │  5. Fine-tune ships only: human sign-off required        │
-  └──────────────────────────────────────────────────────────┘
-       │
-       ├── PASS → promote challenger to champion, retire old L4
-       └── FAIL → keep champion; log challenger result to L2
+RoutingPredictor(LLMTaskClassifier, KIND_ROUTES)
++ abstain-floor {OSPsychMACH}
+@ gemini-3.1-flash-lite
 ```
 
----
+Where:
+```
+KIND_ROUTES = {
+  opinion_survey  → task_context       (sibling survey items as context)
+  knowledge       → task_context
+  risky_choice    → abstain            (uniform; voting overfit dev, dropped Stage 16)
+  moral_dilemma   → abstain
+  personality_scale → calibrated_commitment
+  other           → calibrated_commitment
+}
+```
 
-## 1. The Compounding Memory
+Val results vs. Stage 12 champion (calibrated_commitment + abstain):
 
-Four tiers, each serving a distinct purpose:
-
-**L1 — Raw Outcome Store (always written, never deleted)**  
-The audit log. Every transaction event and every survey wave lands here in its original form, normalized just enough to be query-able. The key invariant: L1 is append-only. It is the source of truth for retrospective backtesting and drift forensics. Nothing is overwritten here — if the segment-posterior or calibration logic later changes, L1 can be reprocessed from scratch.
-
-Behavioral events carry offer context (price, promotion, placement) because the raw purchase signal conflates propensity with opportunity. The ETL strips promotion effects before downstream aggregation — but the original event with the offer context is preserved in L1, so the promotion attribution model can be iterated without losing the raw signal.
-
-**L2 — Prediction Ledger (written at prediction time, outcome linked later)**  
-The key abstraction that prevents data snooping. Every prediction is stamped *before* the outcome arrives — question, segment, the predicted distribution, the pipeline version. When the outcome arrives (a transaction, a new survey wave), it is linked to the existing ledger record. This means all calibration errors are computable against predictions made under real conditions, not from retrospective reconstruction. Without this ledger, there is no honest backtesting.
-
-**L3 — Segment Posterior Store (computed periodically from L1 + L2)**  
-The living summary of what has been learned. Two components:
-
-- *Empirical distributions*: per-segment, per-question-family aggregate distributions, weighted by an exponential moving average (recent outcomes count more, naturally tracking trend without requiring explicit drift detection in the retrieval path).
-- *Calibration residuals*: the structured error signal — how far the LLM's zero-shot prediction is from ground truth, broken down by segment and question family. This is the direct input to the calibrator fitting step.
-
-L3 is what the retrieval/cold path draws from: when we have no outcomes for a new segment, find the nearest segment in L3 by demographic similarity and use its posterior as the prior.
-
-**L4 — Calibrator Cache (updated only when the update gate passes)**  
-The operational artifact: versioned, rollback-able. Calibrator parameters (temperature coefficients, segment shift vectors) plus, optionally, LoRA adapter weights. Each version is kept for 30 days after replacement to enable rollback without retraining. Promotion of a new L4 version is gated — never automatic.
-
----
-
-## 2. Method Spectrum
-
-The ordering from least to most data-hungry reflects a Bayesian intuition: start with the LLM's pretrained prior (strong, free), then move the posterior as evidence accumulates, replacing the prior only when it demonstrably fails and you have enough data to justify the replacement.
-
-| Tier | Mechanism | Data threshold | Who controls |
+| split | champion | router | Δ [95% CI] |
 |---|---|---|---|
-| Cold | ICL / retrieval from L3 | n < 100 labeled outcomes | Automated |
-| Warm | LLM zero-shot + L4 calibrator | n ≥ 100 | Automated (gated) |
-| Warm+ | Segment-conditioned calibration | n ≥ 500 per segment | Automated (gated) |
-| Hot | LoRA adapter fine-tuning | n ≥ 10k, stable, ceiling | Human sign-off |
+| grouped | 53.68 | **55.57** | +1.89 [+1.06, +2.73] |
+| pop | 36.90 | 37.20 | +0.30 [−1.32, +1.88] |
+| pooled | 45.38 | **46.48** | +1.10 [+0.18, +1.94] |
 
-**Cold (ICL/retrieval):** The new-tenant, new-segment default. Retrieve the most demographically similar segment from L3 (k-NN on a small demographic feature space: age band, income band, sport affiliation). Use its empirical posterior as a few-shot anchor in the LLM prompt. This is already what the anti_flattening strategy implicitly does — remind the model that real populations are diverse, not mode-seeking. The cold path makes that anchor explicit and tenant-specific.
+The gain is concentrated on grouped (survey-conditioned) predictions via task-context on opinion and knowledge items. The pop gain is flat — routing doesn't hurt, but the pop challenge (predicting across heterogeneous self-contained tasks) is not resolved by task-context alone.
 
-**Warm (calibrated zero-shot):** Past 100 labeled outcomes, fit an entropy-conditioned temperature calibrator from L2. The functional form: higher temperature (flatten/spread) on high-entropy predictions, lower on consensus ones. This corrects the systematic mode-seeking failure diagnosed in the SimBench paper. Note: Stage 06 showed this calibration was *not* useful for pure survey distribution prediction (anti_flattening prompting already handles it). But for behavioral outcomes — purchase propensity — the LLM's zero-shot is genuinely out-of-distribution, and a calibration layer is critical.
+Key per-kind breakdown:
 
-**Warm+ (segment-conditioned calibration):** With 500+ outcomes per segment, fit separate calibrators per segment rather than a global one. Encode segment effects as shift vectors (delta from the population calibrator) — matching the delta-modeling structure from Part I. This prevents the segment information from distorting population-level accuracy, which the SimBench paper showed is the failure mode of naive persona conditioning.
+| kind | route | Δ |
+|---|---|---|
+| opinion_survey (2784) | task_context | +1.57 |
+| knowledge (311) | task_context | +5.53 |
+| risky_choice (139) | abstain | saved −14.12 by NOT using voting |
+| moral_dilemma (158) | abstain | 0 (already abstaining) |
+| personality_scale (111) | base | +0.13 |
 
-**Hot (LoRA fine-tuning):** A last resort, not a default. Justified only when: (a) volume exceeds ~10k labeled examples, (b) the calibration layer has plateaued, (c) the zero-shot LLM prior is structurally wrong for this domain, and (d) the update gate passes. The risk is overfitting to one tenant's distribution and losing zero-shot generalization — a serious problem if the tenant's customer base shifts. The human sign-off gate exists because fine-tune ships are expensive to roll back and hard to audit.
+The Stage 16 val gate did its job: the `risky_choice → voting` route looked good on dev (+12.6 on Choices13k) but failed on val (−3.0 vs uniform's +11.1). This is the canonical example of why gated validation is non-negotiable.
 
----
+Stage 06 established a separate important fact: all post-hoc calibrators (temperature scaling, entropy-adaptive temperature, Dirichlet smoothing — 14 configurations total) failed to improve on the identity calibrator. The `anti_flattening` prompt strategy already produces well-calibrated distributional predictions on its native domain. This tells us precisely where calibration is NOT needed (stated preference survey distributions) and therefore where it IS: revealed economic behavior, which is out-of-distribution for a text-pretrained model.
 
-## 3. Signal Types: Revealed Behavior vs. Stated Preference
+### Methodological Lessons That Transfer
 
-These are different epistemic classes. They must be routed to different roles in the architecture — not averaged.
+Four lessons from Part I carry forward regardless of domain:
 
-**Revealed behavior (transaction logs) → calibration labels and prediction ledger ground truth**
+1. **Routing beats uniform application.** A task classifier that dispatches to task-appropriate interventions consistently outperforms any single strategy applied uniformly, with generalization properties that hold out-of-sample (zero per-dataset parameters for the positive routes).
 
-- Ecological validity: high. This is what people *actually did* — the commercial variable of interest.
-- LLM nativeness: low. The LLM was trained on text; economic choices under specific offer conditions are OOD.
-- Confounds: high. A purchase is entangled with price, availability, placement, and promotional context. The ETL must isolate propensity from opportunity before using this as a calibration label.
-- Role in the architecture: primary ground truth. Every Prediction Ledger entry linked to a behavioral outcome provides a direct training signal for the calibration layer. This is the signal that *tests the simulator's predictions* against reality.
+2. **The abstain principle.** When the model is confidently wrong (moral dilemmas, certain risky choice frames), predicting uniform is strictly better than predicting the model's output. Every deployment needs explicit failure-mode identification and abstention.
 
-**Stated preferences (survey waves) → persona prior and cold-start conditioning**
+3. **Calibration is domain-specific.** Post-hoc calibration is only warranted where the model's prior is systematically wrong. On its native domain (text expressing attitudes), the LLM is already calibrated by good prompting. The calibration investment belongs where the model is genuinely OOD.
 
-- Ecological validity: moderate. Social desirability bias, hypothetical framing, and mode-seeking from respondents.
-- LLM nativeness: high. Surveys are exactly what the LLM was trained on — attitudes and opinions in text.
-- Role in the architecture: soft prior. New survey waves update L3 posteriors and improve retrieval-path accuracy. They are the *source of conditioning* for the simulator, not the *label* it is validated against.
+4. **The prediction ledger discipline.** Stamp predictions before outcomes arrive. This is what makes calibration errors computable honestly and what makes the update gate meaningful. Without the ledger, all evaluation is retrospective and subject to hindsight contamination.
 
-**Why they must not be averaged:** The value-action gap is well-documented in simulation research (Park et al.: behavioral tasks r ≈ 0.66 vs. attitude tasks r ≈ 0.83). Survey responses systematically overstate socially desirable preferences and understate variance. Averaging stated and revealed signals would corrupt both: the behavioral signal would be diluted by an optimistic prior, and the survey signal would be treated as ground truth for something it was never designed to measure. Route them separately; let each inform what it can.
+### Honest Scope of the SimBench Results
 
-Practically: for a new segment with no transaction history, the architecture uses survey-derived priors (cold path, ICL from L3 survey posteriors) and flags these predictions as prior-dominated with wider confidence intervals. When behavioral outcomes begin arriving, they gate the warm path and progressively override the survey prior for behavioral predictions — while the survey prior continues to inform pure preference and attitude predictions.
+SimBench is a distribution-over-discrete-options prediction task: given a survey question and demographic segment, predict what fraction of respondents chose each answer. This is a real and difficult problem, and the results are meaningful — but it is not behavioral prediction.
 
----
+What SimBench measures:
+- Population-level distributional accuracy over a fixed option set
+- Ability to condition on a demographic segment
+- Generalization across survey instruments and topic areas
 
-## 4. Generalization and Multi-tenancy
+What commercial behavioral data adds:
+- Individual-level event sequences (who bought what, when, in response to what stimulus)
+- Temporal dynamics (drift, churn, re-engagement cycles)
+- Confound richness (price, availability, placement, promotion interacted with individual history)
+- Cross-item effects (basket composition, substitution, complementarity)
+- No fixed option set — the "choices" include browse-without-purchase, cart abandonment, return
 
-**Ground truth from one engagement does not directly improve predictions for another.** This is the honest position. The tempting claim is a "flywheel" where more customers make the system smarter for everyone — but population simulation predicts the behavior of *specific populations*, and those distributions are not exchangeable across customer bases.
-
-**What does not transfer (data-isolated by design):**
-- L1: raw outcomes are tenant-specific and subject to data-sharing agreements and privacy law
-- L3: segment posteriors encode the specific population served
-- L4: calibrators and adapter weights are fit on tenant-specific data
-
-**What does transfer (structural):**
-- The inference harness, prediction ledger schema, and evaluation protocol: universal
-- The backbone LLM: shared across all tenants (the pretrained prior)
-- The calibration *method* (entropy-conditioned temperature): validated on one tenant, available for cold-start on others
-- The reliability ceiling computation: the methodology is universal; the ceiling values are tenant-specific
-- The update gate logic and thresholds: shared defaults, tuned per tenant over time
-
-**The legitimate cross-tenant benefit:** a new tenant benefits from *method validation*, not data transfer. If entropy-conditioned calibration worked on previous sports retailer clients, that is evidence it will work as the warm-path starting point for a new one. The cold-start calibrator is initialized to parameters that worked elsewhere — not to flat priors. This is the honest flywheel: the method becomes better-validated and faster to initialize. Not: "we know more about your customers because we served other customers."
-
-**The optional shared-prior shard:** if two tenants explicitly consent and their customer populations genuinely overlap (e.g., both serve the same demographic), a shared L3 shard can be constructed. This is gated by explicit agreement, not the default. The architecture supports it as a configuration option; the default is full tenant isolation.
+The transition from SimBench to commercial data is not a straight-line extrapolation. It is a domain shift. The methodology validates; the specific scores do not.
 
 ---
 
-## 5. Guardrails and Evaluation
+## 2. From Survey Prediction to Behavioral Simulation
 
-**Preventing overfitting:**
+### The Scope Expansion
 
-- The calibrator is fit on L2 with leave-one-wave-out cross-validation: outcomes from the most recent survey wave or behavioral batch are held out from calibration and used for validation. The calibrator never sees the holdout during training.
-- Volume gates (100 outcomes for warm path, 10k for fine-tuning) prevent calibration when data is too thin to distinguish signal from noise.
-- The **reliability ceiling** is the hard upper bound. Ground-truth distributions are finite-sample estimates — there is irreducible noise from the finite n of any survey or transaction batch. Bootstrap CI over this noise gives the ceiling on what *any* predictor can achieve. An update claiming to exceed the ceiling is overfit by definition and is blocked at the gate.
-- Ensemble calibrators: fit N=5 calibrators on different time windows (1-month, 3-month, 6-month, all-time, leave-last-wave-out). Ship only if they agree within bootstrap CIs. Disagreement across windows signals overfitting to a specific temporal slice.
+The commercial simulator must predict behavioral outcomes, not opinion distributions. These share a deep structure — both are about what humans do when facing a set of options — but differ in almost every surface feature.
 
-**Preventing drift:**
+**Granularity.** SimBench ground truth is an aggregate distribution: "37% said 'a lot', 29% said 'some', ...". Commercial ground truth is individual events: "user 4821 browsed product P3 for 14 seconds, added to cart, then abandoned; 6 hours later purchased P3 at a 15% discount." The individual level unlocks personalization but requires modeling of individual heterogeneity, not just segment statistics.
 
-- Input drift detector: Population Stability Index (PSI) on incoming question types, segment frequencies, and offer contexts. Alert if PSI exceeds threshold since last calibrator training.
-- Outcome drift detector: monitor empirical purchase rates by segment in a trailing window. Alert if any segment's rate shifts beyond 2σ of the calibrator's training-time baseline.
-- Temporal windowing on L3: the segment posterior store uses exponential moving average weights, so recent outcomes count more. The system naturally tracks trend without requiring explicit recalibration on every new batch.
+**Signal richness.** Survey options are clean ordinal labels. Transaction logs are multivariate event streams with continuous features (price, time-since-last-visit, session depth), categorical features (product category, channel, device), and implicit signals (dwell time, scroll depth, search terms). The feature space is orders of magnitude larger.
 
-**Validating an update before it ships:**
+**Confound structure.** Survey responses are confounded by social desirability and hypothetical framing — known, stable biases that good prompting can partially address (what anti_flattening does). Transaction logs are confounded by price dynamics, promotion effects, inventory availability, seasonality, and individual purchase history. These confounds are not stable and must be modeled and removed before the signal can be used for calibration.
 
-1. **Shadow evaluation.** The challenger runs in shadow on all live predictions for a burn-in period (≥1,000 predictions or two calendar weeks, whichever is larger). Its outputs are logged to L2 alongside the champion's but do not affect the client response. At burn-in end, L2 contains paired champion and challenger predictions for real outcomes.
+**Temporal dynamics.** Survey distributions are relatively stable within a wave. Behavioral patterns drift — consumer preferences shift with trends, competitive actions, seasonality, and life events. The simulator must track drift, not just fit a static distribution.
 
-2. **Lift test on the holdout slice.** Using the L2 holdout (outcomes not used in calibration), compute TVD for champion and challenger on matched predictions. The challenger must show statistically significant reduction (bootstrap CI) and the raw Δ must exceed η — the noise floor derived from bootstrap variance on the holdout. This is the Blum-Hardt ladder condition: the same principle used in Part I's LadderGate, which bounds generalization error under repeated adaptive evaluation.
+### What This Unlocks
 
-3. **Reliability ceiling check.** The claimed improvement Δ must not approach the reliability ceiling from the ground-truth distributions' finite-n noise. If the challenger is claiming improvements near the ceiling, it is fitting noise.
+The richer data enables things SimBench cannot:
 
-4. **Human sign-off for fine-tune ships.** Calibrator parameter updates are automated once gates 1–3 pass. LoRA adapter ships require human review: the blast radius is larger, rollback requires re-serving the previous adapter, and fine-tunes can encode subtle distributional artifacts not visible in aggregate metrics but apparent on sample inspection.
+- **Causal counterfactuals**: "if we had offered this segment a 10% discount instead of 15%, what would purchase propensity have been?" Survey distributions don't have offer-context variation; transaction logs do (natural experiments from historical promotions).
+- **Individual-level personalization**: predict for a specific individual (or a micro-segment) rather than a demographic group. The commercial value is often in the tail — identifying the high-propensity individuals, not the population mean.
+- **Sequence and recency effects**: how does a recent browse event change purchase probability in the next 24 hours? Survey waves are cross-sectional; transaction logs are longitudinal.
+- **Cross-category dynamics**: does browsing category A increase purchase probability in category B? Only visible with individual-level sequence data.
 
-5. **Rollback contract.** Every L4 version is retained for 30 days after promotion. If production TVD rises by more than 2σ in a trailing window of 500 predictions, the system automatically rolls back and opens an incident. The rollback is deterministic — no human action required to execute it, though human review is required to re-promote.
+### The Central New Challenge
+
+The value-action gap is already the central constraint in the survey domain — SimBench shows behavioral tasks (economic games) predict at r ≈ 0.66 while attitude tasks predict at r ≈ 0.83. At the individual behavioral level, this gap is wider: individual purchase decisions are noisier than population distributions, more confounded, and more sensitive to unobservable individual state (mood, intent, competing considerations).
+
+This is not a reason to avoid behavioral prediction. It is the reason the architecture must be built around honest calibration, rigorous holdout, and explicit uncertainty — and why the Centaur-style behavioral fine-tuning (a model trained specifically on behavioral outcomes, not just text about attitudes) is the architectural investment that pays off most at scale.
 
 ---
 
-## 6. Extension: Behavioral Foundation Model (Centaur-Style)
-
-The architecture above treats the backbone LLM as fixed — a text-pretrained prior that is either calibrated (warm path) or fine-tuned per-tenant (hot path). A more ambitious extension makes the backbone itself a living component of the feedback loop.
-
-Binz et al. (2024) — *Centaur: A Foundation Model of Human Cognition* — fine-tuned Llama-3.1-70B on the Psych-101 dataset (~60k participants across thousands of cognitive experiments). The resulting model predicted held-out human behavior substantially better than zero-shot, with strong generalization to tasks and populations not present in training. The key result: a foundation model fine-tuned on behavioral data learns structural properties of human decision-making that transfer across domains, not just task-specific patterns.
-
-**The revised stack:**
+## 3. Architecture Overview
 
 ```
-Pretrained LLM (text prior)
-    ↓
-[existing architecture]
+══════════════════════════════════════════════════════════════════════════════
+  DATA INGESTION
+══════════════════════════════════════════════════════════════════════════════
 
-becomes:
+  Revealed Behavior           Stated Responses          External Signals
+  (transaction logs)          (survey waves)            (market context,
+       │                           │                     seasonality, etc.)
+       ▼                           ▼                           │
+  ┌──────────────────┐      ┌───────────────────┐             │
+  │  Behavioral ETL  │      │    Survey ETL     │             │
+  │  - normalize     │      │  - aggregate →    │             │
+  │    offer context │      │    distributions  │             │
+  │  - dedup,        │      │  - quality meta   │             │
+  │    deconfound    │      │    (n, recency)   │             │
+  └────────┬─────────┘      └────────┬──────────┘             │
+           │                         │                         │
+           │                         ▼                         │
+           │              ┌──────────────────────┐            │
+           │              │ Survey→Behavioral     │            │
+           │              │ Bridge                │            │
+           │              │ - sample N synthetic  │            │
+           │              │   individuals per dist│            │
+           │              │ - assign demographic  │            │
+           │              │   + behavioral profile│            │
+           │              │ - construct pseudo-   │            │
+           │              │   transaction logs    │            │
+           │              └──────────┬────────────┘            │
+           │                         │ (synthetic behavioral)   │
+           ▼                         ▼                         ▼
 
-Pretrained LLM (text prior)
-    ↓
-Behavioral foundation fine-tune   ← cross-tenant, anonymized aggregate distributions
-    ↓                                 updated periodically; validated before shipping
-Per-tenant calibration (L4 warm/hot path)
-    ↓
-Prediction
+══════════════════════════════════════════════════════════════════════════════
+  COMPOUNDING MEMORY  (per-tenant, data-isolated)
+══════════════════════════════════════════════════════════════════════════════
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  L1 — Raw Outcome Store  (append-only, permanent)                      │
+  │  ├── behavioral_events: {user_id, item_id, action, offer_ctx, ts}      │
+  │  ├── survey_responses:  {wave_id, item_id, dist, segment_meta, n}      │
+  │  └── synthetic_events:  {bridge_run_id, provenance, pseudo_event, ts}  │
+  └──────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  L2 — Prediction Ledger  (stamped before outcomes arrive)              │
+  │  ├── prediction: {id, spec_hash, task_kind, segment, pred_dist, ts}    │
+  │  └── outcome:    {prediction_id, ground_truth, outcome_source}  ← late │
+  └──────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  L3 — Segment Posterior Store  (aggregated, EMA-weighted)              │
+  │  ├── empirical_dists: per-segment × task-kind × context               │
+  │  └── calibration_residuals: {segment, kind, tvd_err, entropy_gap, n}  │
+  └──────────────────────────────────┬─────────────────────────────────────┘
+                                     │  when update gate passes
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  L4 — Calibrator Cache  (versioned; rollback-able)                     │
+  │  ├── route_params: per-kind calibration params (kind→calibrator)       │
+  │  └── adapter_weights: LoRA / Centaur weights (human-gated)            │
+  └──────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+
+══════════════════════════════════════════════════════════════════════════════
+  BEHAVIORAL FOUNDATION  (shared across tenants; weights, not data)
+══════════════════════════════════════════════════════════════════════════════
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │  Centaur Foundation Model                                              │
+  │  Training corpus:                                                      │
+  │    Phase 0 (day 0):   synthetic behavioral from survey bridge          │
+  │    Phase 1 (months):  real behavioral (anonymized cross-tenant agg)    │
+  │    Phase 2 (scale):   synthetic + real, weighted by provenance         │
+  │  Training method: periodic batch fine-tune (LoRA on backbone LLM)     │
+  │  Validation: same update gate as L4; held-out cross-tenant holdout     │
+  └──────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+
+══════════════════════════════════════════════════════════════════════════════
+  PREDICTION PIPELINE  (at inference time)
+══════════════════════════════════════════════════════════════════════════════
+
+  Query: {question, task_kind, segment, offer_context, individual_history?}
+       │
+       ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │  Task Classifier  (LLMTaskClassifier, one call/stem)    │
+  │  Classifies task into: behavioral_propensity /          │
+  │  offer_response / segment_comparison /                  │
+  │  opinion_survey / knowledge / abstain                   │
+  └────────────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │  Route Dispatcher  (KIND_ROUTES, configurable per       │
+  │  deployment)                                            │
+  │   behavioral_propensity → warm+Centaur+calibration      │
+  │   offer_response        → warm+calibration+A/B context  │
+  │   opinion_survey        → task_context (ICL siblings)   │
+  │   knowledge             → task_context                  │
+  │   risky_choice          → abstain (uniform)             │
+  │   moral_dilemma         → abstain                       │
+  └──────────────────┬──────────────────────────────────────┘
+                     │
+          ┌──────────┼──────────┐
+          ▼          ▼          ▼
+      COLD PATH  WARM PATH  HOT PATH
+      (n<100)   (n≥100)    (n≥10k, stable)
+      ICL from  Centaur+   Centaur + LoRA
+      L3        L4 calibr  adapter (human-gated)
+          │          │          │
+          └──────────┴──────────┘
+                     │
+                     ▼
+            Predicted distribution
+                     │
+                     ▼
+            ← stamp to L2 Ledger  (the closed loop)
+
+══════════════════════════════════════════════════════════════════════════════
+  UPDATE GATE  (before any L4 or Centaur change ships)
+══════════════════════════════════════════════════════════════════════════════
+
+  Shadow eval  →  Lift test (Blum-Hardt η)  →  Ceiling check
+       →  Drift check (PSI)  →  Human sign-off (fine-tune only)
+       │                                                    │
+       PASS: promote challenger, retire old version         │
+       FAIL: keep champion; log challenger to L2 ───────────┘
 ```
 
-**What this changes and why it is defensible:**
+---
 
-Section 4 argued that shared data across tenants is not a flywheel, because population-level behavioral distributions are not exchangeable across customer bases. That claim holds for *raw data*. Model weights are a different matter: if you aggregate anonymized behavioral patterns (purchase propensity distributions by demographic profile × product category × offer context) into fine-tuning data, the knowledge is encoded in weights — not in individual records. The same logic that makes Centaur privacy-defensible applies: what transfers is learned structure of human decision-making, not who bought what.
+## 4. The Survey-to-Behavioral Bridge
 
-This rehabilitates the multi-tenancy argument in a principled way. The flywheel is real, but it operates at the model-weight level rather than the data level:
+### The Bootstrap Problem
 
-- *What transfers:* learned priors over how demographic segments respond to offers, how entropy varies across product types, how context modulates propensity — the structural features of behavioral distributions.
-- *What does not transfer:* the specific joint distribution of any one tenant's customer base, which remains the domain of the per-tenant calibration layer.
+Real behavioral data is the most valuable training signal for the system — but it starts at zero on day one of any new engagement. A new client has no transaction history in our system. A new segment has no behavioral outcomes. The cold-start problem is real.
 
-The behavioral foundation model improves the cold path materially: even a new tenant with zero outcomes benefits from a backbone that already knows something about how humans make purchasing decisions, not merely what they write about purchasing. It also reduces the work the warm-path calibrator needs to do — the prior is better, so the residual to correct is smaller.
+At the same time, survey data is almost always available from day one: market research, prior waves, customer satisfaction surveys, demographic profiling studies. These represent stated preferences, not revealed behavior, but they are not uninformative about behavior. Survey responses correlate with behavioral propensity — imperfectly, with known biases — and this correlation can be exploited structurally.
 
-**Incremental updating as data accumulates:**
+### The Bridge Mechanism
 
-The behavioral foundation model is not trained once. It is periodically retrained on the growing cross-tenant corpus, with increasingly fine-grained behavioral segmentation as data density allows — finer product categories, more nuanced demographic intersections, recency weighting on recent behavioral waves. At low data volumes the fine-tuning is coarse (broad behavioral priors). As the corpus grows, the fine-tuning captures more specific behavioral structure. This is the legitimate version of "the system gets smarter over time" — grounded in weight updates on aggregate data, not raw customer pooling.
+The survey-to-behavioral bridge converts population-level opinion distributions into synthetic individual-level behavioral pseudo-populations:
 
-Each updated behavioral foundation model is validated through the same update gate as L4 changes: shadow evaluation, lift test with the Blum-Hardt η condition, reliability ceiling check, and human sign-off (a foundation model update has a larger blast radius than a per-tenant calibrator).
+**Step 1 — Individual sampling.** Draw N synthetic individuals from the survey distribution. Each individual's attribute vector is sampled: demographic profile (age, income, region) from the segment definition; opinion score sampled from the distribution for their segment; latent behavioral propensity initialized as a noisy function of their opinion score, scaled by the known attitude-behavior correlation (r ≈ 0.4–0.6 in the marketing literature for purchase intent vs. purchase).
 
-**What is genuinely unknown (empirical test required):**
+**Step 2 — Behavioral event generation.** For each synthetic individual, generate plausible behavioral events consistent with their propensity:
+- High-propensity individuals get purchase events with high frequency; low-propensity get browse events, cart-abandonments, or no activity
+- Event timing is drawn from realistic inter-purchase-time distributions (log-normal by category)
+- Offer context is drawn from the range of offer conditions the client will run (bootstrapped from brief/prior campaigns if available, otherwise from category priors)
+- Noise is added at a level that reflects the true attitude-behavior gap: the synthetic events are not ground truth, they are plausible draws from a prior
 
-Centaur's generalization holds across *cognitive tasks* — memory, reasoning, choice under uncertainty, perceptual judgment. Whether that generalization extends to *commercial behavioral data* is untested. The domain gap may be substantial: Psych-101 is controlled laboratory experiments with clean stimuli; transaction logs are messy, confounded by price dynamics and promotion effects, and ecologically very different from a psychology study.
+**Step 3 — Pseudo-log construction.** Assemble individual events into a pseudo-transaction log in the same schema as real behavioral data (L1 behavioral_events). Tag with `bridge_run_id` and provenance metadata so the synthetic origin is always traceable.
 
-Two specific risks:
-1. **Domain mismatch:** behavioral fine-tuning on sports e-commerce data may not improve predictions for, say, media consumption or financial products. The cross-domain generalization claim must be tested, not assumed.
-2. **Confound absorption:** if the fine-tuning corpus is not rigorously promotion-normalized (§3 ETL step), the behavioral foundation model learns "people buy more when there are discounts" rather than genuine preference structure. The anonymized fine-tuning data must be conditioned on offer context before aggregation, for the same reason as the per-tenant calibration labels.
+### What This Produces
 
-The defensible posture: propose the Centaur-style layer as the architecture, implement the cross-tenant fine-tuning in parallel with per-tenant calibration, and run a held-out generalization test across at least two distinct engagement types before claiming cross-domain transfer. The test is cheap (the foundation model is already being trained); the claim is only made if the data supports it.
+The bridge outputs a synthetic behavioral corpus that:
+- Is available from day one, before any real outcomes
+- Reflects the population structure implied by available survey data
+- Has known provenance and can be differentially weighted relative to real data
+- Degrades gracefully: as real behavioral data accumulates, the bridge corpus is weighted down
+
+The bridge corpus is the primary Phase 0 training data for the Centaur behavioral foundation model (§8). It is also used in the cold-path retrieval: when the L3 posterior store is empty for a new segment, synthetic behavioral posteriors from the bridge serve as the retrieval target.
+
+### Fidelity and Limitations
+
+The bridge is a prior, not a ground truth. Its fidelity is bounded by:
+
+- **The attitude-behavior correlation**: survey opinions predict behavior imperfectly and at population level; individual-level prediction from a single survey item is noisy
+- **Social desirability bias**: survey distributions skew toward stated ideals; behavioral distributions often skew differently (people say they care about sustainability; fewer pay the green premium)
+- **Hypothetical framing**: survey responses about purchase intent in the abstract do not account for price sensitivity, in-moment availability, competing offers
+
+As real behavioral data arrives, the bridge fidelity is measurable: compare how well Centaur fine-tuned on synthetic data predicts real outcomes vs. Centaur fine-tuned on the first real-data batches. The gap is the bridge calibration signal. If the gap is large and persistent, the bridge generation model needs revision (e.g., more conservative propensity initialization, stronger noise). If the gap closes quickly as real data arrives, the bridge was a good warm-start.
+
+---
+
+## 5. The Compounding Memory
+
+Four tiers, each serving a distinct purpose.
+
+### L1 — Raw Outcome Store (append-only, permanent)
+
+The audit log. Every event lands here in normalized but minimally processed form. L1 is append-only: nothing is overwritten or deleted. It is the source of truth for retrospective backtesting, drift forensics, and reprocessing if downstream aggregation logic changes.
+
+Three event types:
+- **behavioral_events**: individual transaction records from the client, normalized for offer context (price, promotion flag, placement position, channel). The raw purchase signal is confounded; the ETL strips promotion effects before downstream use, but the original event with offer context is preserved in L1 so the deconfounding model can be iterated.
+- **survey_responses**: aggregate distributions from survey waves, with quality metadata (n, recency, fielding method, response rate). Stored at the wave-question-segment grain.
+- **synthetic_events**: pseudo-transaction logs from the survey-to-behavioral bridge, tagged with provenance. Stored in the same schema as behavioral_events so the pipeline can process them identically, with the provenance flag allowing differential weighting.
+
+### L2 — Prediction Ledger (stamped before outcomes arrive)
+
+The key abstraction preventing data snooping. Every prediction is recorded before its outcome is known:
+
+```
+prediction: {
+  id:           UUID,
+  spec_hash:    SHA256 of pipeline config (model, strategy, calibrator version),
+  task_kind:    classifier output (behavioral_propensity / opinion_survey / ...),
+  segment:      demographic conditioning,
+  context:      offer context at prediction time,
+  pred_dist:    the predicted distribution (array of (option, probability)),
+  timestamp:    when the prediction was made
+}
+```
+
+When the outcome arrives (transaction event, new survey wave), it is linked:
+
+```
+outcome: {
+  prediction_id:   UUID matching the prediction,
+  ground_truth:    the realized distribution or event,
+  outcome_source:  "behavioral" | "survey" | "synthetic",
+  link_timestamp:  when the outcome was observed
+}
+```
+
+This enables honest calibration error computation: error = f(predicted_dist, ground_truth) where ground_truth was unknown at prediction time. Without the ledger, all calibration fitting is retrospective and trivially gameable.
+
+### L3 — Segment Posterior Store (aggregated on schedule)
+
+The living summary of learned distributions. Two components:
+
+- **empirical_dists**: per-segment × task-kind × offer-context-bucket distributions, aggregated from L1, weighted by an exponential moving average (λ = 0.9 weekly, so ~10 weeks half-life — tunable per client based on known drift rates). This provides the retrieval target for the cold path and the baseline for drift detection.
+- **calibration_residuals**: structured error signals from L2 matching — how far the current pipeline's predictions are from ground truth, broken down by segment, task kind, and offer context bucket. This is the input to calibrator fitting for the warm path.
+
+L3 is recomputed on a schedule (daily for behavioral events, per-wave for surveys) or triggered by data volume thresholds. The EMA weighting means L3 naturally tracks trend without requiring explicit drift detection in the retrieval path.
+
+### L4 — Calibrator Cache (gated, versioned, rollback-able)
+
+The operational artifact. Per-tenant, versioned, and subject to the update gate before promotion:
+
+- **route_params**: per-kind calibration parameters (temperature coefficients, segment shift vectors, abstain thresholds). These are the warm-path artifacts — lightweight, fast to fit, low blast radius.
+- **adapter_weights**: LoRA weights from per-tenant fine-tuning or the Centaur foundation model weights. These are the hot-path artifacts — expensive to produce, hard to roll back, require human sign-off.
+
+Every L4 version is retained for 30 days after promotion. Rollback is deterministic (re-serve the previous version) and automated when the production TVD alarm fires.
+
+---
+
+## 6. Method Spectrum
+
+The method for any prediction is determined by: (a) the task kind (from the classifier), and (b) the data tier (from the volume of available outcomes for that segment × kind). These two axes jointly determine which intervention applies.
+
+### Cold Path — ICL + Task-Kind Routing (n < 100 outcomes)
+
+The default for new tenants, new segments, and new task kinds. The task classifier determines the retrieval strategy:
+
+- **opinion_survey / knowledge**: retrieve sibling items (same survey instrument, same segment) from L3. Use them as few-shot context in the prompt, exactly as validated in the Part I task-context route. This is the highest-validated path for opinion prediction.
+- **behavioral_propensity**: retrieve the k nearest segments from L3 by demographic similarity (k-NN in demographic embedding space). Use their empirical behavioral distributions as the prior context in the prompt. The Centaur backbone is already doing some of this work if it has been trained on similar domains.
+- **risky_choice / moral_dilemma**: abstain (return uniform). The Part I lesson — validated on val — is that the model is confidently wrong on these task kinds and uniform strictly dominates. This applies equally in the commercial setting.
+- **offer_response**: retrieve historical A/B test results from L3 by similar segment × offer-context. Use as anchors for the LLM prediction.
+
+### Warm Path — Calibrated + Routing (n ≥ 100 outcomes)
+
+Once 100+ labeled outcomes exist for a segment × kind, fit a calibrator from L2. The calibration functional form is kind-specific:
+
+- **opinion_survey**: entropy-conditioned temperature (higher temperature on high-entropy predictions, lower on consensus ones). This is what Stage 06 showed is NOT needed for well-prompted survey predictions — but may be needed if a commercial survey instrument differs from SimBench's norms.
+- **behavioral_propensity**: logistic recalibration of the LLM's propensity estimate against realized purchase rates. The LLM's zero-shot behavioral estimate is genuinely OOD and will have systematic bias; a simple platt-scaling logistic calibrator per segment is the first correction.
+- **offer_response**: calibrate by offer-context bucket; the LLM tends to overestimate promotional lift for unfamiliar offer structures.
+
+The routing table (KIND_ROUTES in L4) is a first-class configurable artifact per deployment. A retail engagement, a media engagement, and a financial services engagement will have different optimal routes for the same task kind — because the data characteristics differ. The Part I KIND_ROUTES is the validated starting point; per-deployment tuning on dev data with the same gated protocol refines it.
+
+### Hot Path — Centaur Fine-Tune (n ≥ 10k, stable, ceiling)
+
+Only when: (a) outcome volume exceeds the threshold, (b) the calibration layer has plateaued (improvement from warm path < η over last update cycle), (c) the Centaur foundation backbone is available and stable, and (d) the update gate passes including human sign-off.
+
+The LoRA adapter per tenant encodes the residual between the Centaur backbone's predictions and the tenant-specific outcome distribution. This is a much smaller tuning target than fine-tuning from scratch — the Centaur backbone has already absorbed most of the behavioral structure; the adapter corrects for what is idiosyncratic to this tenant's population.
+
+**The risk**: the adapter overfits to a specific epoch of the tenant's customer behavior. If the customer base shifts (new market segment, product line extension, competitor pricing change), the adapter may make the predictions worse. The drift detector (PSI on outcome distributions) triggers re-evaluation, and the rollback contract ensures the previous adapter is available.
+
+---
+
+## 7. Signal Types
+
+Three distinct epistemic classes. They must be routed to different roles in the architecture — never averaged, never treated as the same kind of evidence.
+
+### Revealed Behavior (Transaction Logs) → Calibration Labels
+
+- **What it measures**: what people *did* under real stakes, real prices, real availability
+- **LLM nativeness**: low — the LLM was pretrained on text; economic choices with real monetary consequences are genuinely OOD
+- **Confound burden**: high — a purchase conflates propensity, availability, price sensitivity, promotion exposure, and individual state. The ETL must isolate propensity from opportunity before this signal can serve as a calibration label.
+- **Role**: primary ground truth for L2 ledger outcomes; the signal that calibrates the warm and hot paths; the training target for the Centaur behavioral fine-tune
+- **What it unlocks that surveys can't**: individual heterogeneity, temporal sequences, cross-item effects, causal identification via natural promotion experiments
+
+### Stated Preferences (Survey Waves) → Persona Prior and Cold-Start
+
+- **What it measures**: what people *say* they value and believe, under hypothetical framing
+- **LLM nativeness**: high — surveys are exactly what the model was pretrained on (attitudes, opinions, self-reports in text)
+- **Biases**: social desirability, hypothetical frame, non-response
+- **Role**: soft prior for the cold path; source of conditioning for opinion/attitude predictions; input to the survey-to-behavioral bridge; L3 posterior updates via survey waves
+- **Epistemic limitation**: cannot serve as ground truth for behavioral calibration; systematically predicts behavior at r ≈ 0.4–0.6 at the individual level
+
+### Synthetic Behavioral (Bridge Output) → Centaur Training Bootstrap
+
+- **What it is**: pseudo-transaction logs generated by sampling from survey distributions and applying the attitude-behavior correlation model
+- **LLM nativeness**: n/a — this is generated data, not a model input
+- **Provenance**: always tagged; differentially weighted below real behavioral data
+- **Role**: Phase 0 training corpus for Centaur; cold-path retrieval target when L3 is empty for a new segment; degrades gracefully as real data accumulates
+- **Fidelity ceiling**: bounded by the attitude-behavior correlation and the social-desirability/hypothetical biases in the source survey data
+
+### How They Interact
+
+```
+Signal Type          → Role in System             → NOT used for
+─────────────────────────────────────────────────────────────────────
+Revealed behavior    → calibration labels (L2)    → prior conditioning
+                     → Centaur training (real)    → cold-start prior
+                     
+Stated preferences  → persona prior               → calibration target
+                     → cold-start conditioning    → Centaur training alone
+                     → survey bridge input
+                     
+Synthetic behavioral → Centaur Phase 0 training   → calibration labels
+                     → cold-path L3 bootstrap      → direct predictions
+```
+
+The value-action gap makes these boundaries load-bearing. Blurring them — treating survey responses as calibration targets for behavioral prediction, or using synthetic behavioral data as ground truth — would corrupt the calibration and produce overconfident predictions on a distribution the model has never been honestly tested against.
+
+---
+
+## 8. Behavioral Foundation Model (Centaur-Style)
+
+### Motivation
+
+The text-pretrained LLM carries a strong prior over stated preferences (its native domain) but a weak and systematically biased prior over revealed behavioral outcomes. The warm-path calibration corrects for the bias per tenant, but it starts from a weak baseline. A foundation model additionally trained on behavioral outcome data would start from a better prior — requiring less calibration to correct, and generalizing better to new segments and new task kinds within the behavioral domain.
+
+Binz et al. (2024) — *Centaur: A Foundation Model of Human Cognition* — demonstrated this approach on cognitive behavioral data: fine-tuning Llama-3.1-70B on the Psych-101 dataset (~60k participants across thousands of cognitive experiments) produced strong cross-task generalization to held-out cognitive tasks and populations. The resulting model "thinks like humans" in a way that zero-shot LLMs do not — not because it was instructed to, but because it was trained on behavioral outcomes.
+
+### Training Data Composition
+
+The Centaur training corpus is built in phases, with explicit provenance tracking:
+
+| Phase | Data source | Provenance weight | When available |
+|---|---|---|---|
+| 0 | Synthetic behavioral (bridge output) | 0.3 | Day 1 |
+| 0 | Psych-101 / public cognitive behavioral | 0.5 | Day 1 |
+| 0 | SimBench-derived pseudo-behavioral | 0.2 | Day 1 |
+| 1 | Anonymized cross-tenant real behavioral | 0.7 (rising) | After 3 months |
+| 1 | Synthetic (declining share) | 0.3 (falling) | Ongoing |
+| 2 | Primarily real behavioral | >0.9 | At scale |
+
+The provenance weights are not hyperparameters to tune on the validation metric — they reflect the epistemic quality ordering: real behavioral outcomes are the ground truth, synthetic is a prior. The weight schedule is predetermined and changes on a calendar schedule, not in response to evaluation metrics.
+
+### The Cross-Domain Generalizability Question
+
+The Centaur result holds for cognitive tasks (memory, reasoning, perceptual judgment, risky choice under laboratory conditions). Whether it transfers to commercial behavioral data (e-commerce purchases) is an open empirical question, not a design assumption.
+
+The domain gap is real and non-trivial:
+- Psych-101 tasks are controlled experiments with clean stimuli; transaction logs are messy, confounded, and ecologically complex
+- Laboratory risky-choice tasks (lotteries with stated probabilities) are different from real purchase decisions under uncertain promotion effects
+- Cognitive tasks are typically one-shot; purchase behavior has strong path dependence and recency effects
+
+The architecture's response: run the Centaur backbone against a held-out cross-tenant behavioral test set (minimum two distinct engagement types; one sports retail, one from a different vertical if available) before asserting cross-domain transfer. The result of this test determines whether the Centaur backbone improves predictions relative to the text-pretrained baseline. If it does not, it is treated as a negative result and the warm-path calibration remains the primary learning mechanism.
+
+### Incremental Updating
+
+The Centaur foundation model is re-trained periodically (monthly initially; more frequently at scale) on the growing cross-tenant corpus. Each re-training:
+- Incorporates new real behavioral data from all tenants (anonymized and aggregated)
+- Reduces the synthetic share proportionally
+- Is validated on the cross-tenant holdout before being promoted
+- Goes through the same update gate as L4 changes, including a human sign-off
+
+The re-training uses LoRA (parameter-efficient fine-tuning) to avoid full-model training costs. The LoRA rank is a function of the corpus size: smaller rank at Phase 0 (weak signal, avoid overfitting), larger rank at Phase 2 (strong signal, more capacity needed).
+
+---
+
+## 9. Generalization and Multi-tenancy
+
+### What Does and Doesn't Generalize
+
+**Does not generalize (per-tenant, data-isolated):**
+- L1, L2, L3: raw outcomes, prediction ledger, segment posteriors are tenant-specific. Privacy law and commercial data-sharing agreements require this; the architecture enforces it.
+- L4 calibrator params: fit on tenant-specific outcome distributions; not exchangeable across tenants with different customer bases.
+
+**Generalizes via weights (Centaur foundation):**
+- The Centaur backbone encodes cross-tenant behavioral structure in model weights. This is legitimate: it encodes *structure* (how demographic segments respond to offer types, how high-entropy behavioral states decompose) not *records* (who bought what). No raw customer data crosses tenant boundaries.
+
+**Generalizes via method (validated protocol):**
+- The routing architecture, the prediction ledger schema, the update gate protocol, the calibration functional forms — these are validated methods that cold-start any new tenant from a better prior than random initialization. The routing table KIND_ROUTES is the Part I result; it is available to all tenants as the default and refined per-tenant on their dev data.
+- The reliability ceiling methodology (bootstrap CI on ground-truth finite-n noise) is a universal tool; the computed ceilings are per-tenant.
+
+### The Two Flywheels
+
+The honest version of the multi-tenancy flywheel has two components:
+
+**Flywheel 1 — Method validation.** Each new engagement tests the routing architecture, the calibration protocol, and the update gate against real behavioral outcomes. The results inform what works and what doesn't. A failed route in one engagement (as voting failed on val in Stage 16) is a signal to remove or constrain that route for future engagements. The method compound by becoming more validated, not by pooling data.
+
+**Flywheel 2 — Centaur weight sharing.** Each new engagement's behavioral outcomes (anonymized, aggregated) contribute to the next Centaur re-training cycle. The foundation model improves because it has seen more diverse behavioral distributions; this improvement benefits all tenants on the next cycle. This is the legitimate data flywheel — operating at the model-weight level, not the raw-record level.
+
+### The Honest No-Flywheel Claim
+
+A new sports retailer engagement does not make us better at predicting behavior for a pre-existing sports retailer client. The per-tenant calibrators are independent. The Centaur improvement from a new engagement is diffuse — it improves the foundation's behavioral prior in general, not the specific tenant's calibration.
+
+The claim is: *a new engagement benefits from the validated method and the Centaur foundation model. It does not benefit from other tenants' raw behavioral data. Its own data, once accumulated, improves its own predictions.*
+
+---
+
+## 10. Guardrails and Evaluation
+
+### Preventing Overfitting
+
+**Volume gates.** Cold path (n < 100) uses retrieval only — no calibration fitting. Warm path (n ≥ 100) fits a calibrator. Hot path (n ≥ 10k) allows fine-tuning. The gate thresholds are not hyperparameters; they are derived from the minimum sample size needed to detect a signal above noise at α = 0.05 with 80% power, given the expected effect size from the domain literature.
+
+**Reliability ceiling as hard stop.** Ground-truth distributions are finite-sample estimates. The bootstrap CI on the sampling noise gives an irreducible ceiling on achievable accuracy. Any update claiming improvement beyond this ceiling is fitting noise and is blocked. This is the one bound that cannot be gamed — it is a property of the data-generating process.
+
+**Ensemble calibrators.** Fit N = 5 calibrators on different data windows (1-month, 3-month, 6-month, all-time, leave-last-wave-out). Ship only if they agree within bootstrap CIs. Disagreement across windows signals overfitting to a temporal slice.
+
+**Leave-one-wave-out.** The calibrator is always fit on a held-out wave (the most recent survey wave or behavioral batch is withheld). The held-out wave is the primary validation set for the lift test.
+
+### Preventing Drift
+
+**Input drift (PSI).** Population Stability Index on the distribution of task kinds, segment frequencies, and offer contexts. Alert if PSI > 0.2 since last calibrator training. This is the signal that the input distribution has shifted enough that the calibrator may no longer be valid.
+
+**Outcome drift.** Monitor empirical purchase rates by segment in a trailing window. Alert if any segment's rate shifts beyond 2σ of the calibrator's training-time baseline.
+
+**Temporal windowing in L3.** The segment posterior store uses EMA weighting (recent outcomes count more). The system naturally tracks trend; drift detection is a backstop for sudden shifts, not a substitute for adaptive weighting.
+
+### The Five-Step Update Gate
+
+Before any L4 or Centaur change ships:
+
+**Step 1 — Shadow evaluation.** The challenger runs in shadow on all live predictions for a burn-in (≥1,000 predictions or two calendar weeks, whichever is larger). Outputs are logged to L2 alongside the champion's but do not affect the client response.
+
+**Step 2 — Lift test on the L2 holdout.** Using outcomes from the held-out wave (never used in calibration), compute TVD for champion and challenger on matched predictions. The challenger must show statistically significant reduction (bootstrap CI lower bound > 0) AND the raw Δ must exceed η — the noise floor derived from bootstrap variance on the holdout. This is the Blum-Hardt ladder condition: the same principle operationalized in Part I's experiment protocol, which prevents accepting updates that are within noise of no-improvement.
+
+**Step 3 — Reliability ceiling check.** The claimed Δ must not exceed the reliability ceiling computed from ground-truth finite-n noise. If the challenger claims to exceed the ceiling, it is fitting noise.
+
+**Step 4 — Drift check.** PSI on the challenger's input distribution vs. the champion's training-time distribution. A large PSI means the challenger was trained on a different distribution than it is being evaluated on — an artifact, not a real improvement.
+
+**Step 5 — Human sign-off for fine-tune ships.** Calibrator parameter updates (L4 route_params) are automated once steps 1–4 pass. LoRA adapter and Centaur backbone updates require human review: blast radius is larger, rollback is harder, and subtle distributional artifacts are more likely.
+
+**Rollback contract.** Every L4 version retained 30 days post-promotion. If production TVD rises by >2σ in a trailing window of 500 predictions, the system auto-rolls back and opens an incident. Re-promotion requires human review.
+
+---
+
+## 11. Infrastructure
+
+### Compute
+
+**Inference (prediction serving):** hosted API inference via OpenRouter (OpenAI-compatible gateway, single key, any vendor model accessible by model ID string). At low volume, on-demand API calls are cheaper than reserved GPU capacity. The OpenRouter architecture from Part I is the right answer here: one client, one request schema, one API key — vendor switching is a config change, not an integration. The cross-model portability Part I demonstrated (method gain is roughly model-invariant) means vendor lock-in is not a risk.
+
+At higher tenant volume (>10k predictions/day), the latency and cost of hosted API inference justifies self-hosting: vLLM on reserved GPU instances (A100 or H100 for large models; A10G for smaller models like gemini-equivalent open-weights). The OpenRouter interface abstracts this: the same code points at a self-hosted vLLM endpoint with an OpenAI-compatible API.
+
+**Centaur fine-tuning:** GPU spot instances (A100 40GB for LoRA fine-tuning of 7–13B models; H100 for 70B). Spot pricing is appropriate because fine-tuning runs are scheduled batch jobs, not latency-sensitive. One fine-tuning run per month at Phase 1; more frequent at Phase 2 if behavioral corpus grows fast. Cost estimate: ~$200–500/run for a 13B LoRA fine-tune on 1M behavioral events (12–24 hours on 4×A100 spot).
+
+### Model Access
+
+OpenRouter as the production-inference gateway. The same provider-agnostic pattern from Part I:
+- One `LLMClient` with one `OPENROUTER_API_KEY`; `model=` string swaps vendor
+- On-disk SHA-256 cache keyed by `hash(model, messages, sampling_params)` — re-runs are free and deterministic
+- Production can pin to a specific provider (e.g., `google/gemini-flash-1.5-8b` directly) for latency SLA; the codebase is unchanged
+
+For self-hosted inference: vLLM with the same OpenAI-compatible API; the `LLMClient` points at `localhost:8000` instead of OpenRouter. Zero code change.
+
+### Data Storage
+
+**L1 (raw outcomes):** append-only object storage (S3-compatible). Parquet partitioned by tenant × date × event_type. Cheap, durable, query-able via Athena/DuckDB. No deletions; GDPR compliance via per-tenant encryption keys (key revocation = effective deletion without modifying the store).
+
+**L2 (prediction ledger):** columnar format (Parquet) in object storage, with an index on `prediction_id` and `timestamp`. The backtest query pattern (join prediction to outcome, filter by timestamp range, aggregate by segment) is efficient in columnar. Consider a lightweight analytical DB (DuckDB, MotherDuck) for interactive queries.
+
+**L3 (segment posteriors):** key-value store keyed by `tenant_id:segment_hash:kind`. Redis for low-latency cold-path retrieval; S3 for persistent backup. Evict on a TTL matching the EMA half-life.
+
+**L4 (calibrators + adapters):** versioned object storage. Calibrator params as JSON (small, fast to load). LoRA adapter weights as safetensors. Metadata catalog (DynamoDB or a simple SQLite) tracks version, training timestamp, holdout metrics, and rollback target.
+
+**Centaur training corpus:** versioned data lake (Iceberg or Delta Lake format). Provenance column on every row. Fine-tuning jobs consume a specific snapshot of the lake, tagged to the Centaur model version they produced.
+
+### Experiment Tracking
+
+**For inference/calibration experiments:** config-hashed run directories (the pattern from Part I: `outputs/runs/<date>-<name>/`). Every run produces a `meta.json` (frozen config), `topline.csv` (aggregate scores), `results.json` (per-record scores). The ledger DAG tracks the sequence of updates and the champion/challenger history.
+
+**For Centaur fine-tuning:** ML experiment tracking (Weights & Biases or MLflow). Each run tagged with: training corpus version, LoRA rank, base model version, holdout metrics, data provenance breakdown. Model artifacts registered with the above metadata so any Centaur version is reproducible from the corpus snapshot and the training config.
+
+**The invariant:** every prediction in production is traceable to a spec_hash in L2, which resolves to a config, which resolves to a model version and a corpus snapshot. No prediction is unattributable.
+
+---
+
+## 12. Open Questions and Research Agenda
+
+These are the dimensions where the architecture makes bets that have not yet been empirically tested, in priority order for future investigation.
+
+### 1. Centaur Cross-Domain Generalizability
+
+**The question:** does a model fine-tuned on cognitive behavioral data (Psych-101) and/or SimBench-derived pseudo-behavioral data produce better zero-shot priors for e-commerce purchase behavior than the text-pretrained baseline?
+
+**Why it matters:** if yes, the Centaur foundation is a genuine flywheel and the investment in behavioral fine-tuning pays off from early engagements. If no, the foundation is just a text-pretrained LLM with extra training, and the warm-path calibration carries all the load.
+
+**How to test:** run the Centaur backbone (fine-tuned on Phase 0 corpus) vs. the base LLM on a held-out cross-tenant behavioral test set from at least two distinct engagement types. Measure TVD improvement on purchase propensity predictions before any per-tenant calibration. A positive result > η is evidence of transfer; a null result means calibration is doing the work, not the foundation.
+
+### 2. Survey-to-Behavioral Bridge Fidelity
+
+**The question:** how good are synthetic behavioral pseudo-populations as training data for the Centaur model, and how much real data is needed before the synthetic bootstrap is no longer contributing positively?
+
+**How to test:** at 3 months post-engagement, the first real behavioral data is available. Run an ablation: Centaur trained on (Phase 0 only) vs. (Phase 0 + real behavioral) vs. (real behavioral only). Measure on the held-out behavioral test set. The Phase 0 vs. Phase 0+real gap quantifies how much the real data adds; the Phase 0 vs. real-only gap quantifies how much the bridge contributed to warm-start vs. training from scratch on real data.
+
+### 3. Individual vs. Population-Level Prediction
+
+**The question:** the SimBench work predicts population distributions; the commercial system may need individual-level predictions (which specific users to target, not what fraction of the population will convert). Individual-level prediction is a harder problem — it requires modeling heterogeneity within segments, not just segment means.
+
+**Why it matters:** the routing architecture and calibration framework in this document are built around population/segment-level distributions. Extending to individual-level prediction requires either (a) a much larger feature space per individual or (b) a probabilistic model of within-segment heterogeneity.
+
+**Approach:** pilot individual-level prediction on a single segment with rich transaction history. Compare segment-mean prediction vs. individual-level prediction on held-out outcomes. The gap quantifies the value of individual-level modeling and informs whether the investment is warranted for the commercial product.
+
+### 4. Entropy Headroom from Stage 16
+
+Stage 16 mechanism analysis showed that predictions remain ~0.06 too diffuse (predicted entropy 0.76 vs. truth entropy 0.70) and this headroom was not closed by the routing intervention. Concentration error (0.12) dominates location error (0.05) in the remaining TVD. This is an open avenue for improvement.
+
+**Approach:** investigate entropy calibration methods that are conditioned on the task kind rather than applied globally (which Stage 06 showed is ineffective). A task-kind-specific entropy correction (e.g., tighter distributions for knowledge items where ground truth is more peaked; wider for opinion items where heterogeneity is expected) is the natural extension.
+
+### 5. Longer-Horizon Behavioral Dynamics
+
+**The question:** all current architecture is essentially static (predict propensity at a point in time). Commercial value often comes from longer-horizon dynamics: when will a customer churn? how does a customer's purchase probability evolve across a session? what is the 30-day LTV given a first purchase?
+
+**Approach:** this requires sequence modeling rather than distribution-over-options prediction — a qualitative extension of the architecture. The Centaur backbone could in principle handle this if trained on behavioral sequences rather than single events. Longer-horizon modeling is outside the current scope but is the natural Phase 2 research agenda.
 
 ---
 
 ## Design Decisions and Tradeoffs
 
-**Why not fine-tune first?** Stage 06 showed the LLM with good prompting is already well-calibrated for its native domain (stated preferences). For behavioral outcomes, the value-action gap makes the LLM's zero-shot prior imprecise but not useless — still better than no prior. A calibration layer correcting for systematic OOD error is lower-risk and lower-cost than a fine-tune that replaces the prior. Fine-tuning is reserved for when calibration plateaus, which requires data volumes most tenants will not reach for months.
+**Why method routing, not a single model.** The Part I evidence is unambiguous: no single prompt strategy dominates across task kinds. The routing architecture trades a classifier overhead (one extra LLM call per unique question stem, cached) for substantial prediction quality improvement. In the commercial setting, the stakes are higher and the task heterogeneity is at least as large; the routing architecture is even more justified.
 
-**Why the Prediction Ledger must exist.** Without an explicit record of what was predicted before outcomes arrived, it is impossible to compute calibration errors honestly. All retrospective analyses would be subject to hindsight contamination — effectively, data snooping on the outcome. The ledger makes the prediction-outcome link explicit and auditable, enforcing the same leakage discipline as the Part I dev/val/test protocol.
+**Why the bridge, not waiting for real data.** Waiting for real behavioral data before starting Centaur training means months of cold-start on a weak prior. The bridge produces a synthetic corpus that is better than nothing, has known provenance, and degrades gracefully as real data accumulates. The cost of the bridge (generating synthetic data) is negligible relative to the cost of deploying a behavioral simulator on a weak prior for months.
 
-**Why shared data across tenants is not a flywheel, but shared weights can be.** Population-level behavioral distributions are not exchangeable across customer bases — raw data pooling conflates "more training examples" with "more training examples about *you*." But a behavioral foundation model (§6) encodes cross-tenant learning in weights rather than data. This is the legitimate flywheel, and it operates at two levels: (a) the backbone gets better at predicting human behavior in general via Centaur-style fine-tuning on anonymized cross-tenant outcomes; (b) the *method* — the prediction ledger protocol, the gated update logic, the calibration functional form — is validated across tenants and available for cold-start on new ones. The per-tenant calibration layer handles what is specific to each customer base; everything above it is shared structure.
+**Why not fine-tune per-tenant from day one.** Stage 06 showed that even targeted calibration (14 configurations of calibrators) on well-prompted survey predictions added no value. The LLM's native calibration for its training domain is better than post-hoc correction. For behavioral data, the LLM's native calibration is genuinely poor — but the correction should start with calibration (cheap, low blast radius) and escalate to fine-tuning only when calibration has plateaued. Volume gates enforce this escalation ladder.
 
-**Why the reliability ceiling is the hard stop.** Any metric can be gamed under adaptive evaluation. The reliability ceiling — irreducible noise from finite-n sampling — is the one bound that cannot be gamed: it is a property of the data-generating process, not the model. Using it as a hard gate ensures the system does not mistake sampling noise for model improvement, which is the central risk of an adaptive evaluation loop.
+**Why shared weights, not shared data.** Per-tenant data cannot cross tenant boundaries (privacy, commercial, legal). Model weights can, because they encode learned structure, not records. This is the same argument that makes foundation model pretraining on internet text legitimate: the weights encode patterns, not individuals. The Centaur approach extends this to behavioral data.
+
+**Why the SimBench numbers are framing, not validation.** The supervised framing of the commercial problem is different from SimBench in ways that matter: richer signals, individual-level data, behavioral confounds, temporal dynamics. A system that achieves good SimBench scores might still be wrong about purchase propensity, and vice versa. The SimBench results validate the methodology — routing generalizes, the prediction ledger discipline enforces honest evaluation, gated validation catches overfitting — not the specific commercial predictions.
