@@ -216,3 +216,60 @@ def plot_system_comparison(
     ax.legend(loc="lower right", fontsize=8)
     fig.tight_layout()
     return fig
+
+
+def plot_required_question_distributions(
+    req_results: dict[str, pd.DataFrame],
+    weight_col: str = "group_size",
+) -> Figure:
+    """Population-weighted predicted (Q) vs. human (P) answer distribution for
+    each assignment-required question.
+
+    ``req_results`` maps a question key (e.g. ``"trust_president"``) to the
+    :func:`scrye.evaluate.evaluate` frame holding *all* of that question's
+    records — every segment/population variant. Within a question every variant
+    shares the same option set, so the human and predicted distributions are
+    pooled across variants — each weighted by ``weight_col`` (the number of
+    humans behind the record) — into a single answer distribution over the
+    options. The mean per-record SimBench S is annotated per panel.
+
+    One panel per question; grouped bars are human (P) vs predicted (Q). This is
+    the headline Part-I deliverable view for ``trust_president`` / ``gay_rights``
+    / ``internet_use``.
+    """
+    items = [(q, df) for q, df in req_results.items() if len(df)]
+    if not items:
+        raise ValueError("req_results has no non-empty frames to plot.")
+    pipeline = items[0][1].attrs.get("pipeline", "")
+
+    def _pooled(df: pd.DataFrame, col: str, options: list[str], w: np.ndarray) -> np.ndarray:
+        v = np.zeros(len(options))
+        for wi, dist in zip(w, df[col]):
+            for j, o in enumerate(options):
+                v[j] += wi * float(dist.get(o, 0.0))
+        s = v.sum()
+        return v / s if s > 0 else v
+
+    ncols = len(items)
+    fig = Figure(figsize=(4.7 * ncols, 3.8))
+    axes = fig.subplots(1, ncols, squeeze=False)[0]
+    for ax, (q, df) in zip(axes, items):
+        options = list(df.iloc[0]["options"])
+        w = df[weight_col].to_numpy(dtype=float) if weight_col in df else np.ones(len(df))
+        if not np.isfinite(w).all() or w.sum() <= 0:
+            w = np.ones(len(df))
+        P = _pooled(df, "truth", options, w)
+        Q = _pooled(df, "pred", options, w)
+        x = np.arange(len(options))
+        ax.bar(x - 0.2, P, 0.4, label="human (P)", color="#4C72B0")
+        ax.bar(x + 0.2, Q, 0.4, label="predicted (Q)", color="#C44E52")
+        ax.set_xticks(x)
+        ax.set_xticklabels(options, fontsize=7, rotation=25, ha="right")
+        ax.set_ylim(0, max(P.max(), Q.max(), 1e-9) * 1.25)
+        ax.set_title(f"{q}\nn={len(df)} variants · mean S = {df['score'].mean():.1f}", fontsize=9)
+        ax.set_ylabel("probability")
+    axes[0].legend(fontsize=8, loc="upper right")
+    fig.suptitle(f"Required-question answer distributions — predicted vs. human  ({pipeline})",
+                 fontsize=11)
+    fig.tight_layout()
+    return fig
