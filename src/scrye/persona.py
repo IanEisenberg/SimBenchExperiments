@@ -404,8 +404,19 @@ class CalibratedCommitmentStrategy(PromptStrategy):
         "options. A broad population is usually more split than a specific subgroup."
     )
 
+    def __init__(self, audience: str | None = None) -> None:
+        """`audience` overrides the population descriptor with a free-text noun
+        phrase (e.g. "US tech workers in 2025"), used by the ``scrye-ask`` CLI to
+        condition on an arbitrary group. ``None`` (the default, and the registered
+        instance) keeps the segment-derived phrasing, so the prompt stays
+        byte-identical to the validated strategy."""
+        self.audience = audience
+
     def build_messages(self, record: SimBenchRecord) -> list[dict]:
-        who, year_clause = _population_phrase(record)
+        if self.audience:
+            who, year_clause = self.audience, ""
+        else:
+            who, year_clause = _population_phrase(record)
         user = (
             f"Consider a large, representative sample of {who}{year_clause}.\n\n"
             f"{record.input_template.strip()}\n\n"
