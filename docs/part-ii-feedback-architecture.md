@@ -13,11 +13,11 @@ What transfers from Part I is not the specific numbers but the *methodology*: th
 
 Three structural bets define this architecture:
 
-**1. Routing as a continuously learned artifact, not a static dispatch map.** Part I demonstrated that a task-content classifier dispatching to task-appropriate prompt strategies outperforms any uniform approach — and that the correct routing is empirically discovered, not assumed (the `risky_choice → voting` route looked good on dev, failed on val, and was dropped). In the commercial system, this principle extends fully: the routing table (task kind → prompt strategy) is a versioned, gated, data-driven artifact updated through the same protocol as calibrators. Prompt strategy within task context becomes a continuously improvable lever — new strategies are introduced, shadowed against the current route, and promoted when they clear the lift test. The commercial task taxonomy (`behavioral_propensity`, `offer_response`, `segment_comparison`, `churn_risk`) is largely untested territory; the correct routes will be discovered empirically as outcome data accumulates, not assumed by analogy to the survey domain.
+**1. Task/environment description as universal input enrichment — not routing dispatch.** Part I's routing gain came from giving the model better contextual framing of the decision environment (sibling survey items, task structure) — not from the classification machinery itself. The classifier was fragile; the enrichment principle is durable. In the commercial system, every prediction receives a rich description of the task structure, decision environment, and relevant contextual factors — the model conditions on this context rather than being switched between strategies. Abstain-on-uncertainty is preserved as a separate coverage policy: knowing when not to predict (risky choice, moral dilemma) is distinct from knowing how to enrich a prediction. The enrichment configuration itself — what contextual factors to include, how to structure the task description — is a learned artifact, discovered empirically as outcome data accumulates.
 
-**2. Survey-to-behavioral bridge for Centaur bootstrap.** Before real transaction data accumulates, we are not starting from nothing: we have survey distributions. These can be transformed into synthetic pseudo-populations of behavioral choices — sampling N individuals from each distribution, assigning demographic profiles and plausible behavioral propensities, constructing pseudo-transaction logs with calibrated noise. This synthetic corpus bootstraps the Centaur training from day one, with a known fidelity gap to be measured and closed as real data arrives.
+**2. Data normalization layer: all inputs refashioned as single-choice behavioral records.** Rather than maintaining separate pipelines for surveys, transactions, and experimental data, a normalization layer converts every input type into a canonical single-choice behavioral record. The survey-to-behavioral bridge (sampling synthetic individuals from population distributions) is one component of this layer; behavioral ETL is another; experimental data a third. This unified representation is what enables Centaur to train on heterogeneous sources, what makes the memory tiers (L1–L4) format-agnostic, and what allows the same prediction stack to handle cold-start via synthetic data and hot-path via real behavioral outcomes without special-casing.
 
-**3. Centaur-style behavioral foundation model as the shared prior.** Following Binz et al. (2024), a foundation model fine-tuned on behavioral outcome data learns structural properties of human decision-making that generalize across tasks and populations — encoding this in weights rather than records, which is the only principled form of cross-tenant learning. The cross-domain generalizability from cognitive tasks (Psych-101) to e-commerce behavior is an empirical question; the architecture mandates testing it before asserting it.
+**3. Centaur enriched by task/environment encoding — a primary experimental lever.** Following Binz et al. (2024), a foundation model fine-tuned on behavioral outcome data learns structural properties of human decision-making that generalize across tasks and populations — encoding this in weights rather than records, which is the only principled form of cross-tenant learning. The additional hypothesis — that Centaur's predictions further improve when inputs include rich task/environment descriptions — is the architecture's primary experimental lever for Phase 1. The cross-domain generalizability from cognitive tasks (Psych-101) to e-commerce behavior is also empirical; the architecture mandates testing both before asserting either.
 
 ---
 
@@ -73,7 +73,7 @@ Stage 06 established a separate important fact: all post-hoc calibrators (temper
 
 Four lessons from Part I carry forward regardless of domain:
 
-1. **Routing beats uniform application.** A task classifier that dispatches to task-appropriate interventions consistently outperforms any single strategy applied uniformly, with generalization properties that hold out-of-sample (zero per-dataset parameters for the positive routes).
+1. **Environmental enrichment beats generic prompting.** Providing the model with richer contextual description of the decision environment — sibling items, task framing, option structure — consistently outperforms generic prompting. The Part I routing system delivered this enrichment through a task classifier, but the gain was in the enrichment itself, not the classification machinery. In a commercial system with diverse and novel task types, universal enrichment is more defensible than a brittle dispatch map.
 
 2. **The abstain principle.** When the model is confidently wrong (moral dilemmas, certain risky choice frames), predicting uniform is strictly better than predicting the model's output. Every deployment needs explicit failure-mode identification and abstention.
 
@@ -219,29 +219,22 @@ This is not a reason to avoid behavioral prediction. It is the reason the archit
   PREDICTION PIPELINE  (at inference time)
 ══════════════════════════════════════════════════════════════════════════════
 
-  Query: {question, task_kind, segment, offer_context, individual_history?}
+  Query: {question, segment, offer_context, individual_history?}
        │
        ▼
   ┌─────────────────────────────────────────────────────────┐
-  │  Task Classifier  (LLMTaskClassifier, one call/stem)    │
-  │  Classifies task into: behavioral_propensity /          │
-  │  offer_response / segment_comparison /                  │
-  │  opinion_survey / knowledge / abstain                   │
+  │  Task/Environment Enrichment  (configurable, versioned) │
+  │  Augments query with contextual description:            │
+  │   - decision environment: option set, stakes, channel   │
+  │   - task structure: type, format, framing               │
+  │   - behavioral priors from L3 (k-NN retrieved)         │
+  │  Enrichment config is a learned artifact (gated, v'd)   │
   └────────────────────────┬────────────────────────────────┘
                            │
+                           ├── abstain policy: risky choice / moral dilemma
+                           │          └──→ return uniform (coverage policy)
                            ▼
-  ┌─────────────────────────────────────────────────────────┐
-  │  Route Dispatcher  (KIND_ROUTES, configurable per       │
-  │  deployment)                                            │
-  │   behavioral_propensity → warm+Centaur+calibration      │
-  │   offer_response        → warm+calibration+A/B context  │
-  │   opinion_survey        → task_context (ICL siblings)   │
-  │   knowledge             → task_context                  │
-  │   risky_choice          → abstain (uniform)             │
-  │   moral_dilemma         → abstain                       │
-  └──────────────────┬──────────────────────────────────────┘
-                     │
-          ┌──────────┼──────────┐
+          ┌──────────┬──────────┐
           ▼          ▼          ▼
       COLD PATH  WARM PATH  HOT PATH
       (n<100)   (n≥100)    (n≥10k, stable)
@@ -269,50 +262,59 @@ This is not a reason to avoid behavioral prediction. It is the reason the archit
 
 ---
 
-## 4. The Survey-to-Behavioral Bridge
+## 4. The Data Normalization Layer
 
-### The Bootstrap Problem
+### The Normalization Principle
 
-Real behavioral data is the most valuable training signal for the system — but it starts at zero on day one of any new engagement. A new client has no transaction history in our system. A new segment has no behavioral outcomes. The cold-start problem is real.
+The system ingests three distinct data types — revealed behavior (transaction logs), stated preferences (survey waves), and experimental outcomes. These have different formats, different granularities, and different epistemic statuses. The normalization layer converts all of them into a canonical single-choice behavioral record before any downstream processing. This unification is what makes the memory tiers (L1–L4) format-agnostic, what enables Centaur to train on heterogeneous sources, and what allows the prediction stack to operate identically regardless of input origin.
 
-At the same time, survey data is almost always available from day one: market research, prior waves, customer satisfaction surveys, demographic profiling studies. These represent stated preferences, not revealed behavior, but they are not uninformative about behavior. Survey responses correlate with behavioral propensity — imperfectly, with known biases — and this correlation can be exploited structurally.
+The canonical behavioral record:
 
-### The Bridge Mechanism
+```json
+{
+  "agent_id":   "individual or segment identifier",
+  "context":    "decision environment: option set, stakes, framing, channel",
+  "choice":     "selected option (or sampled from distribution)",
+  "outcome":    "downstream result if observed",
+  "provenance": "behavioral | survey_bridge | experimental",
+  "weight":     "provenance-based confidence (1.0 real, 0.4–0.7 bridge)"
+}
+```
 
-The survey-to-behavioral bridge converts population-level opinion distributions into synthetic individual-level behavioral pseudo-populations:
+Three normalization paths produce this format.
 
-**Step 1 — Individual sampling.** Draw N synthetic individuals from the survey distribution. Each individual's attribute vector is sampled: demographic profile (age, income, region) from the segment definition; opinion score sampled from the distribution for their segment; latent behavioral propensity initialized as a noisy function of their opinion score, scaled by the known attitude-behavior correlation (r ≈ 0.4–0.6 in the marketing literature for purchase intent vs. purchase).
+### Path A — Behavioral ETL
 
-**Step 2 — Behavioral event generation.** For each synthetic individual, generate plausible behavioral events consistent with their propensity:
-- High-propensity individuals get purchase events with high frequency; low-propensity get browse events, cart-abandonments, or no activity
-- Event timing is drawn from realistic inter-purchase-time distributions (log-normal by category)
-- Offer context is drawn from the range of offer conditions the client will run (bootstrapped from brief/prior campaigns if available, otherwise from category priors)
-- Noise is added at a level that reflects the true attitude-behavior gap: the synthetic events are not ground truth, they are plausible draws from a prior
+Transaction logs arrive as individual events: `{user_id, item_id, action, price, placement, channel, timestamp}`. The ETL step:
+1. **Deconfounds**: strips offer effects (price promotion, placement boost) from the raw action signal to isolate behavioral propensity
+2. **Normalizes**: maps item/category identifiers to a stable taxonomy
+3. **Tags**: adds provenance = "behavioral" and weight = 1.0
 
-**Step 3 — Pseudo-log construction.** Assemble individual events into a pseudo-transaction log in the same schema as real behavioral data (L1 behavioral_events). Tag with `bridge_run_id` and provenance metadata so the synthetic origin is always traceable.
+These records are the ground-truth training signal. LLMs are genuinely OOD on this domain; calibration is required.
 
-### What This Produces
+### Path B — Survey-to-Behavioral Bridge
 
-The bridge outputs a synthetic behavioral corpus that:
-- Is available from day one, before any real outcomes
-- Reflects the population structure implied by available survey data
-- Has known provenance and can be differentially weighted relative to real data
-- Degrades gracefully: as real behavioral data accumulates, the bridge corpus is weighted down
+Survey waves arrive as population distributions over discrete options. The bridge converts these into synthetic individual behavioral records:
 
-The bridge corpus is the primary Phase 0 training data for the Centaur behavioral foundation model (§8). It is also used in the cold-path retrieval: when the L3 posterior store is empty for a new segment, synthetic behavioral posteriors from the bridge serve as the retrieval target.
+**Step 1 — Individual sampling.** Draw N synthetic agents from the survey distribution. Assign each a demographic profile (from the segment definition) and a latent behavioral propensity initialized as a noisy function of their opinion score, scaled by the empirical attitude-behavior correlation (r ≈ 0.4–0.6).
 
-### Fidelity and Limitations
+**Step 2 — Behavioral event generation.** For each agent, generate plausible events consistent with their propensity: high-propensity agents get purchase-like events; low-propensity get browse or abandon events. Event timing follows realistic inter-event distributions. Noise is calibrated to the known attitude-behavior gap.
 
-The bridge is a prior, not a ground truth. Its fidelity is bounded by:
+**Step 3 — Record construction.** Assemble events into canonical behavioral records tagged provenance = "survey_bridge" with weight < 1.0 (reflecting the fidelity ceiling). The bridge corpus is available from day one before any real outcomes exist.
 
-- **The attitude-behavior correlation**: survey opinions predict behavior imperfectly and at population level; individual-level prediction from a single survey item is noisy
-- **Social desirability bias**: survey distributions skew toward stated ideals; behavioral distributions often skew differently (people say they care about sustainability; fewer pay the green premium)
-- **Hypothetical framing**: survey responses about purchase intent in the abstract do not account for price sensitivity, in-moment availability, competing offers
+**Fidelity ceiling.** Bridge fidelity is bounded by the attitude-behavior correlation and social desirability bias in the source survey. As real behavioral data arrives, the gap is measurable: compare Centaur fine-tuned on bridge-only vs. real outcomes. If the gap is large and persistent, bridge generation needs revision. If it closes quickly, the bridge was a good warm-start.
 
-As real behavioral data arrives, the bridge fidelity is measurable: compare how well Centaur fine-tuned on synthetic data predicts real outcomes vs. Centaur fine-tuned on the first real-data batches. The gap is the bridge calibration signal. If the gap is large and persistent, the bridge generation model needs revision (e.g., more conservative propensity initialization, stronger noise). If the gap closes quickly as real data arrives, the bridge was a good warm-start.
+### Path C — Experimental and Public Behavioral Data
 
----
+Psych-101 (Binz et al.'s Centaur training corpus) and SimBench-derived data are also normalized into this format. These records have high provenance quality for their domain (cognitive and attitude tasks) and serve as Phase 0 Centaur training data before any client data arrives. Provenance = "experimental"; weight reflects domain distance to the target prediction task.
 
+### What Normalization Enables
+
+By reducing all input types to the same record schema before they enter L1, the architecture achieves:
+- **Centaur training agnosticism**: one fine-tuning pipeline handles all data sources; provenance weights control their relative influence
+- **L1 simplicity**: the raw store holds one event type, not three
+- **Consistent calibration**: the same calibration error computation (predicted vs. actual choice) applies regardless of whether the ground truth came from a transaction or a bridge-generated record
+- **Graceful degradation**: as real data accumulates, bridge records' weights decline automatically; the pipeline behavior is continuous, not a hard switch
 ## 5. The Compounding Memory
 
 Four tiers, each serving a distinct purpose.
@@ -396,31 +398,31 @@ Once 100+ labeled outcomes exist for a segment × kind, fit a calibrator from L2
 - **behavioral_propensity**: logistic recalibration of the LLM's propensity estimate against realized purchase rates. The LLM's zero-shot behavioral estimate is genuinely OOD and will have systematic bias; a simple platt-scaling logistic calibrator per segment is the first correction.
 - **offer_response**: calibrate by offer-context bucket; the LLM tends to overestimate promotional lift for unfamiliar offer structures.
 
-### The Routing Table as a Continuously Learned Artifact
+### Task/Environment Enrichment as a Continuously Learned Artifact
 
-The routing table is not a config file — it is a first-class gated artifact, versioned and updated through the same five-step protocol as calibrators. This is the key architectural consequence of the Part I routing lesson: the correct route for a task kind is empirically discovered, not assumed.
+The enrichment configuration — what contextual factors to include, how to structure the task description, what priors to retrieve from L3 — is not a static config. It is a first-class gated artifact, versioned and updated through the same five-step protocol as calibrators.
 
-For each task kind *k*, the optimal route *r\*(k)* is determined by:
+The principle from Part I: the enrichment gain (task_context on survey/knowledge items: +1.57 and +5.53 on val) came from better environmental description, not from the classification mechanism. What transfers to the commercial system is the principle that richer, more structured task descriptions produce better predictions. The specific content of those descriptions — which factors matter for behavioral propensity vs. offer response vs. segment comparison — must be discovered from outcome data, not assumed.
+
+For each prediction context, the optimal enrichment *e\*(c)* is:
 
 ```
-r*(k) = argmax_r E[TVD_improvement(r) | task_kind = k, n_outcomes ≥ threshold]
+e*(c) = argmax_e E[TVD_improvement(e) | context_type = c, n_outcomes ≥ threshold]
 ```
 
-evaluated on held-out outcomes from L2. When sufficient labeled outcomes exist for a task kind, the routing choice becomes testable. A new prompt strategy (e.g., a chain-of-thought approach for offer-response tasks, or a contrastive framing for churn-risk tasks) is introduced as a challenger route, shadowed against the current route for that kind, and promoted if it clears the Blum-Hardt lift threshold.
+evaluated on held-out outcomes from L2. When sufficient labeled outcomes exist for a context type, the enrichment choice is testable. A new enrichment structure (e.g., including competitive context for offer-response tasks, or recency-weighted history for churn prediction) is introduced as a challenger, shadowed against the current configuration, and promoted if it clears the Blum-Hardt lift threshold.
 
-This is precisely what "prompt strategy within task context as a lever" means operationally: not that prompting is a knob to tune manually, but that the routing table is a structured space of prompt strategy choices that is searched and validated by the same data-driven process that governs every other component of the system.
+The starting enrichment configuration for commercial contexts is an informed prior:
 
-For the commercial task taxonomy, the starting routing table is an informed prior, not a validated result:
-
-| commercial kind | starting route (prior) | basis |
+| context type | starting enrichment (prior) | basis |
 |---|---|---|
-| `behavioral_propensity` | Centaur backbone + warm calibration | LLM is OOD; calibration required |
-| `offer_response` | offer-context ICL from L3 | analogous to task_context on surveys |
-| `segment_comparison` | delta prediction (§2 design) | avoids distorting population prior |
-| `churn_risk` | abstain until n ≥ 500 | high-stakes; cold prediction is unreliable |
-| `opinion_survey` | task_context (val-confirmed) | direct transfer from Part I |
+| `behavioral_propensity` | individual history + segment prior from L3 | LLM needs behavioral grounding |
+| `offer_response` | A/B context + offer parameters + segment empirical | analogous to task_context on surveys |
+| `segment_comparison` | contrast framing + both segments' priors | delta prediction avoids distorting priors |
+| `churn_risk` | abstain until n ≥ 500 | high-stakes; cold enrichment is unreliable |
+| `opinion_survey` | sibling items as context (val-confirmed from Part I) | direct transfer |
 
-Each of these routes will be confirmed, modified, or replaced as behavioral outcome data accumulates for that kind.
+Each configuration will be confirmed, modified, or replaced as behavioral outcome data accumulates. The abstain cases (`churn_risk` at low n) are coverage policy decisions, not enrichment decisions — they are fixed until volume justifies a prediction attempt.
 
 ### Hot Path — Centaur Fine-Tune (n ≥ 10k, stable, ceiling)
 
@@ -678,7 +680,7 @@ Stage 16 mechanism analysis showed that predictions remain ~0.06 too diffuse (pr
 
 ## Design Decisions and Tradeoffs
 
-**Why method routing, not a single model.** The Part I evidence is unambiguous: no single prompt strategy dominates across task kinds. The routing architecture trades a classifier overhead (one extra LLM call per unique question stem, cached) for substantial prediction quality improvement. In the commercial setting, the stakes are higher and the task heterogeneity is at least as large; the routing architecture is even more justified. And critically: the routing table is itself a learning artifact. The dev-to-val reversal on `risky_choice → voting` is the clearest illustration of why routes must be gated, not assumed — a route that looks good on dev can fail systematically on held-out data. The commercial task kinds are new territory and their optimal routes are unknown; treating the routing table as a versioned, gated artifact means that uncertainty is handled by the architecture, not assumed away.
+**Why universal enrichment, not routing dispatch.** The Part I evidence shows the gain came from better contextual description of the decision environment, not from the classification mechanism. The `task_context` route worked because it gave the model richer environmental framing — sibling survey items as context — not because it dispatched to a different strategy. The dev-to-val reversal on `risky_choice → voting` is the clearest illustration of routing's brittleness: a route that looks good on dev can fail systematically on held-out data, and a commercial system with novel task types would face this failure mode constantly. Universal enrichment — always conditioning on rich task/environment description — is more defensible: it doesn't require a correct taxonomy, doesn't break on unseen task types, and the enrichment configuration itself is the gated learning artifact. Abstain-on-uncertainty remains as a coverage policy for known-unreliable prediction contexts (risky choice, moral dilemma at low n).
 
 **Why the SimBench numbers are framing, not targets.** The commercial problem differs from SimBench in ways that matter structurally: individual-level data vs. population distributions, temporal sequences vs. cross-sectional snapshots, confounded behavioral signals vs. clean survey options, open outcome spaces vs. fixed option sets. A system optimized to maximize SimBench scores would make the wrong tradeoffs for commercial behavioral prediction. The Part I numbers are cited here as proof that the methodology works — routing generalizes, the prediction ledger enforces honest evaluation, gated validation catches overfitting — not as performance targets for the commercial system.
 

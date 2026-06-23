@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scrye — Architecture Overview (Simple)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 28px 14px;
+    border-bottom: 1px solid #21262d;
+  }
+  header h1 { font-size: 1.25rem; font-weight: 600; color: #e6edf3; }
+  header p { font-size: 0.8rem; color: #8b949e; margin-top: 3px; }
+
+  .diagram-container { position: relative; padding: 20px; }
+  svg#arch { width: 100%; display: block; }
+
+  .node rect { rx: 7; ry: 7; stroke-width: 1.5; cursor: default; }
+  .node text { fill: #e6edf3; font-size: 12px; font-weight: 500; pointer-events: none; dominant-baseline: middle; text-anchor: middle; }
+  .node .sub { font-size: 10px; fill: #8b949e; font-weight: 400; }
+  .node .label { font-size: 10px; fill: #8b949e; font-weight: 700; letter-spacing: 0.06em; }
+
+  .swim-bg { fill: #161b22; }
+  .swim-label { fill: #30363d; font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+
+  .edge { fill: none; stroke-width: 1.5; opacity: 0.5; }
+  .edge-beh   { stroke: #FF8A65; }
+  .edge-sur   { stroke: #4FC3F7; }
+  .edge-syn   { stroke: #CE93D8; }
+  .edge-pred  { stroke: #81C784; }
+  .edge-fb    { stroke: #EF9A9A; }
+  .edge-cen   { stroke: #80DEEA; }
+  .edge-gate  { stroke: #FFD54F; }
+
+  .legend {
+    position: absolute; bottom: 28px; right: 28px;
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 12px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .legend-title { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: #8b949e; text-transform: uppercase; margin-bottom: 3px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: #c9d1d9; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scrye — Architecture Overview</h1>
+  <p>Three-stage closed loop: data in → compounding memory → predictions</p>
+</header>
+
+<div class="diagram-container">
+<svg id="arch" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-beh"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FF8A65"/></marker>
+    <marker id="arr-sur"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
+    <marker id="arr-syn"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
+    <marker id="arr-pred" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
+    <marker id="arr-fb"   markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#EF9A9A"/></marker>
+    <marker id="arr-cen"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#80DEEA"/></marker>
+    <marker id="arr-gate" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
+    <marker id="arr-def"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#444c56"/></marker>
+  </defs>
+
+  <!-- ── Swim lane backgrounds ── -->
+  <rect class="swim-bg" x="10"   y="10" width="240" height="565" rx="6"/>
+  <rect class="swim-bg" x="262"  y="10" width="280" height="565" rx="6"/>
+  <rect class="swim-bg" x="554"  y="10" width="390" height="565" rx="6"/>
+
+  <text class="swim-label" x="130"  y="34">Data In</text>
+  <text class="swim-label" x="402"  y="34">Compounding Memory</text>
+  <text class="swim-label" x="749"  y="34">Predictions</text>
+
+  <!-- ══════════════════════════
+       COL 1 — DATA IN
+  ══════════════════════════════ -->
+
+  <!-- Revealed Behavior -->
+  <g class="node">
+    <rect x="24" y="60"  width="212" height="56" fill="#1a2332" stroke="#FF8A65"/>
+    <text x="130" y="82">Revealed Behavior</text>
+    <text class="sub" x="130" y="98">Transaction logs · individual events</text>
+  </g>
+
+  <!-- Stated Surveys -->
+  <g class="node">
+    <rect x="24" y="168" width="212" height="56" fill="#1a2432" stroke="#4FC3F7"/>
+    <text x="130" y="190">Stated Preferences</text>
+    <text class="sub" x="130" y="206">Survey waves · population dists</text>
+  </g>
+
+  <!-- Normalization Layer -->
+  <g class="node">
+    <rect x="24" y="288" width="212" height="72" fill="#1e1a2e" stroke="#CE93D8"/>
+    <text x="130" y="312">Data Normalization</text>
+    <text x="130" y="328">Layer</text>
+    <text class="sub" x="130" y="346">→ canonical behavioral records</text>
+  </g>
+
+  <!-- Centaur (shown as a cross-cutting foundation) -->
+  <g class="node">
+    <rect x="24" y="470" width="212" height="72" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/>
+    <text x="130" y="495">Centaur Foundation</text>
+    <text class="sub" x="130" y="511">Shared across tenants</text>
+    <text class="sub" x="130" y="526">via weights · not data</text>
+  </g>
+  <text x="130" y="458" text-anchor="middle" font-size="9" fill="#80DEEA" opacity="0.7">SHARED BEHAVIORAL PRIOR</text>
+
+  <!-- ══════════════════════════
+       COL 2 — MEMORY
+  ══════════════════════════════ -->
+
+  <!-- L1 -->
+  <g class="node">
+    <rect x="276" y="60"  width="252" height="56" fill="#1a2520" stroke="#81C784"/>
+    <text x="402" y="80">L1 · Raw Outcome Store</text>
+    <text class="sub" x="402" y="97">Append-only · all provenance types</text>
+  </g>
+
+  <!-- L2 -->
+  <g class="node">
+    <rect x="276" y="176" width="252" height="56" fill="#1f1a1a" stroke="#EF9A9A"/>
+    <text x="402" y="196">L2 · Prediction Ledger</text>
+    <text class="sub" x="402" y="213">Stamped before outcomes arrive</text>
+  </g>
+
+  <!-- L3 -->
+  <g class="node">
+    <rect x="276" y="292" width="252" height="56" fill="#1a2020" stroke="#80DEEA"/>
+    <text x="402" y="312">L3 · Segment Posteriors</text>
+    <text class="sub" x="402" y="329">EMA-weighted · calibration residuals</text>
+  </g>
+
+  <!-- L4 -->
+  <g class="node">
+    <rect x="276" y="408" width="252" height="56" fill="#211f1a" stroke="#FFD54F"/>
+    <text x="402" y="428">L4 · Calibrator Cache</text>
+    <text class="sub" x="402" y="445">Route params · LoRA adapters (gated)</text>
+  </g>
+
+  <!-- ══════════════════════════
+       COL 3 — PREDICTIONS
+  ══════════════════════════════ -->
+
+  <!-- Task/Env Enrichment -->
+  <g class="node">
+    <rect x="568" y="60"  width="362" height="72" fill="#1e1e1a" stroke="#FFD54F"/>
+    <text x="749" y="84">Task / Environment Enrichment</text>
+    <text class="sub" x="749" y="101">context · task structure · L3 behavioral priors (k-NN)</text>
+    <text class="sub" x="749" y="116">versioned · gated · empirically discovered</text>
+  </g>
+
+  <!-- Coverage Policy -->
+  <g class="node">
+    <rect x="568" y="186" width="362" height="52" fill="#1a1a1a" stroke="#555"/>
+    <text x="749" y="206">Coverage Policy</text>
+    <text class="sub" x="749" y="223">risky choice / moral dilemma → abstain (return uniform)</text>
+  </g>
+
+  <!-- Three paths -->
+  <g class="node">
+    <rect x="568"  y="296" width="108" height="68" fill="#1a2020" stroke="#80DEEA"/>
+    <text x="622"  y="320">Cold</text>
+    <text class="sub" x="622" y="336">n &lt; 100</text>
+    <text class="sub" x="622" y="350">ICL / RAG</text>
+  </g>
+  <g class="node">
+    <rect x="688"  y="296" width="108" height="68" fill="#211f1a" stroke="#FFD54F"/>
+    <text x="742"  y="320">Warm</text>
+    <text class="sub" x="742" y="336">n ≥ 100</text>
+    <text class="sub" x="742" y="350">Calibrated</text>
+  </g>
+  <g class="node">
+    <rect x="812"  y="296" width="108" height="68" fill="#200e0e" stroke="#EF9A9A"/>
+    <text x="866"  y="320">Hot</text>
+    <text class="sub" x="866" y="336">n ≥ 10k</text>
+    <text class="sub" x="866" y="350">Centaur+LoRA</text>
+  </g>
+
+  <!-- Output -->
+  <g class="node">
+    <rect x="638" y="424" width="222" height="52" fill="#152015" stroke="#81C784" stroke-width="2"/>
+    <text x="749" y="444">Predicted Distribution</text>
+    <text class="sub" x="749" y="461">→ stamps L2 Ledger</text>
+  </g>
+
+  <!-- Update Gate -->
+  <g class="node">
+    <rect x="638" y="500" width="222" height="60" fill="#221a0a" stroke="#FFD54F" stroke-width="1.5"/>
+    <text x="749" y="520">Update Gate</text>
+    <text class="sub" x="749" y="537">shadow → lift test → ceiling → PSI → sign-off</text>
+  </g>
+
+  <!-- ══════════════════════════
+       EDGES
+  ══════════════════════════════ -->
+
+  <!-- Revealed → L1 -->
+  <path class="edge edge-beh" marker-end="url(#arr-beh)" d="M236,88 H276"/>
+  <!-- Surveys → L1 -->
+  <path class="edge edge-sur" marker-end="url(#arr-sur)" d="M236,196 C254,196 264,96 276,96"/>
+  <!-- Surveys → Normalization -->
+  <path class="edge edge-sur" marker-end="url(#arr-sur)" d="M130,224 V288"/>
+  <!-- Normalization → L1 (synthetic) -->
+  <path class="edge edge-syn" marker-end="url(#arr-syn)" d="M236,324 C258,324 268,114 276,114"/>
+  <!-- Normalization → Centaur -->
+  <path class="edge edge-syn" marker-end="url(#arr-syn)" d="M130,360 V470"/>
+
+  <!-- L1 → L2 -->
+  <path class="edge edge-fb" marker-end="url(#arr-fb)" d="M402,116 V176"/>
+  <!-- L2 → L3 -->
+  <path class="edge edge-fb" marker-end="url(#arr-fb)" d="M402,232 V292"/>
+  <!-- L3 → L4 -->
+  <path class="edge edge-gate" marker-end="url(#arr-gate)" d="M402,348 V408"/>
+
+  <!-- L3 → Enrichment (retrieval) -->
+  <path class="edge edge-cen" marker-end="url(#arr-cen)" stroke-dasharray="5,3" d="M528,310 C548,310 558,96 568,96"/>
+  <!-- L4 → Warm -->
+  <path class="edge edge-gate" marker-end="url(#arr-gate)" d="M528,436 C548,436 672,394 688,380"/>
+
+  <!-- Centaur → Hot -->
+  <path class="edge edge-cen" marker-end="url(#arr-cen)" d="M236,506 C380,530 750,490 812,364"/>
+  <!-- Centaur → Warm -->
+  <path class="edge edge-cen" marker-end="url(#arr-cen)" d="M236,490 C350,490 650,404 688,364"/>
+
+  <!-- L1 → Enrichment (context) -->
+  <path class="edge edge-sur" stroke-dasharray="4,3" marker-end="url(#arr-sur)" d="M528,88 H568"/>
+
+  <!-- Enrichment → Coverage Policy -->
+  <path class="edge edge-gate" marker-end="url(#arr-gate)" d="M749,132 V186"/>
+
+  <!-- Coverage → Cold/Warm/Hot -->
+  <path class="edge edge-gate" marker-end="url(#arr-gate)" d="M700,238 C680,256 622,276 622,296"/>
+  <path class="edge edge-gate" marker-end="url(#arr-gate)" d="M749,238 V296"/>
+  <path class="edge edge-gate" marker-end="url(#arr-gate)" d="M800,238 C820,256 866,276 866,296"/>
+
+  <!-- Paths → Output -->
+  <path class="edge edge-pred" marker-end="url(#arr-pred)" d="M622,364 C640,400 700,424 700,424"/>
+  <path class="edge edge-pred" marker-end="url(#arr-pred)" d="M742,364 V424"/>
+  <path class="edge edge-pred" marker-end="url(#arr-pred)" d="M866,364 C860,400 800,424 800,424"/>
+
+  <!-- Output → L2 (stamp) -->
+  <path class="edge edge-fb" stroke-dasharray="5,3" marker-end="url(#arr-fb)" d="M638,450 C600,450 560,440 528,320"/>
+
+  <!-- Output → Gate -->
+  <path class="edge edge-fb" marker-end="url(#arr-fb)" d="M749,476 V500"/>
+
+  <!-- Gate → L4 (promote) -->
+  <path class="edge edge-gate" stroke-dasharray="5,3" marker-end="url(#arr-gate)" d="M638,530 C580,530 528,490 528,464"/>
+  <!-- Gate → Centaur (promote backbone) -->
+  <path class="edge edge-gate" stroke-dasharray="5,3" marker-end="url(#arr-gate)" d="M638,520 C520,560 300,560 236,540"/>
+
+  <!-- Particles -->
+  <g id="particles"></g>
+
+</svg>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-title">Signal</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Survey / stated</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FF8A65"></div>Behavioral / revealed</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Synthetic / bridge</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Prediction output</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback / ledger</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Centaur</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Gate / calibration</div>
+</div>
+</div>
+
+<script>
+const DEFS = [
+  { id: 'e-p1', edgeD: 'M236,88 H276',                                         color: '#FF8A65', speed: 0.014 },
+  { id: 'e-p2', edgeD: 'M236,196 C254,196 264,96 276,96',                      color: '#4FC3F7', speed: 0.011 },
+  { id: 'e-p3', edgeD: 'M130,224 V288',                                         color: '#4FC3F7', speed: 0.010 },
+  { id: 'e-p4', edgeD: 'M236,324 C258,324 268,114 276,114',                    color: '#CE93D8', speed: 0.009 },
+  { id: 'e-p5', edgeD: 'M130,360 V470',                                         color: '#CE93D8', speed: 0.007 },
+  { id: 'e-p6', edgeD: 'M402,116 V176',                                         color: '#EF9A9A', speed: 0.012 },
+  { id: 'e-p7', edgeD: 'M402,232 V292',                                         color: '#EF9A9A', speed: 0.012 },
+  { id: 'e-p8', edgeD: 'M402,348 V408',                                         color: '#FFD54F', speed: 0.011 },
+  { id: 'e-p9', edgeD: 'M528,310 C548,310 558,96 568,96',                      color: '#80DEEA', speed: 0.010 },
+  { id: 'e-p10',edgeD: 'M528,436 C548,436 672,394 688,380',                    color: '#FFD54F', speed: 0.010 },
+  { id: 'e-p11',edgeD: 'M528,88 H568',                                          color: '#4FC3F7', speed: 0.013 },
+  { id: 'e-p12',edgeD: 'M749,132 V186',                                         color: '#FFD54F', speed: 0.013 },
+  { id: 'e-p13',edgeD: 'M742,238 V296',                                         color: '#FFD54F', speed: 0.014 },
+  { id: 'e-p14',edgeD: 'M742,364 V424',                                         color: '#81C784', speed: 0.012 },
+  { id: 'e-p15',edgeD: 'M638,450 C600,450 560,440 528,320',                    color: '#EF9A9A', speed: 0.007 },
+  { id: 'e-p16',edgeD: 'M749,476 V500',                                         color: '#EF9A9A', speed: 0.009 },
+  { id: 'e-p17',edgeD: 'M638,530 C580,530 528,490 528,464',                    color: '#FFD54F', speed: 0.007 },
+  { id: 'e-p18',edgeD: 'M236,506 C380,530 750,490 812,364',                    color: '#80DEEA', speed: 0.008 },
+];
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const svg   = document.getElementById('arch');
+const group = document.getElementById('particles');
+
+// Build temporary paths to measure
+const particles = DEFS.map((def, i) => {
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('d', def.edgeD);
+  path.style.visibility = 'hidden';
+  svg.appendChild(path);
+  const len = path.getTotalLength();
+
+  const circle = document.createElementNS(svgNS, 'circle');
+  circle.setAttribute('r', '3.5');
+  circle.setAttribute('fill', def.color);
+  circle.setAttribute('opacity', '0.85');
+  group.appendChild(circle);
+
+  return { path, len, circle, speed: def.speed, t: i * 0.07 };
+});
+
+function animate() {
+  particles.forEach(p => {
+    p.t = (p.t + p.speed) % 1;
+    try {
+      const pt = p.path.getPointAtLength(p.t * p.len);
+      p.circle.setAttribute('cx', pt.x);
+      p.circle.setAttribute('cy', pt.y);
+    } catch(e) {}
+  });
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

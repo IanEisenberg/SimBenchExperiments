@@ -259,12 +259,12 @@
       <text class="sub" x="124" y="381">Market context · seasonality</text>
     </g>
 
-    <!-- Survey→Behavioral Bridge -->
+    <!-- Data Normalization Layer -->
     <g class="node" id="node-bridge" data-id="bridge">
       <rect x="28" y="470" width="192" height="72" fill="#1e1a2e" stroke="#CE93D8"/>
-      <text x="124" y="496">Survey → Behavioral</text>
-      <text x="124" y="512">Bridge</text>
-      <text class="sub" x="124" y="530">Synthetic pseudo-populations</text>
+      <text x="124" y="496">Data Normalization</text>
+      <text x="124" y="512">Layer</text>
+      <text class="sub" x="124" y="530">→ canonical behavioral records</text>
     </g>
 
     <!-- ═══════════════════════════════════════════
@@ -314,21 +314,22 @@
          COL 3 — PREDICTION PIPELINE
     ══════════════════════════════════════════════ -->
 
-    <!-- Task Classifier -->
+    <!-- Task/Env Enrichment -->
     <g class="node" id="node-classifier" data-id="classifier">
       <rect x="616" y="100" width="252" height="68" fill="#1e1e1a" stroke="#FFD54F"/>
-      <text x="742" y="126">Task Classifier</text>
-      <text class="sub" x="742" y="143">LLMTaskClassifier · 1 cached call/stem</text>
-      <text class="sub" x="742" y="157">opinion / knowledge / risky / moral / other</text>
+      <text x="742" y="120">Task/Environment</text>
+      <text x="742" y="136">Enrichment</text>
+      <text class="sub" x="742" y="153">context · structure · L3 priors</text>
+      <text class="sub" x="742" y="165">versioned · gated config</text>
     </g>
 
-    <!-- Route Dispatcher -->
+    <!-- Coverage Policy / Abstain -->
     <g class="node" id="node-router" data-id="router">
-      <rect x="616" y="228" width="252" height="80" fill="#1f1e1a" stroke="#FFD54F"/>
-      <text x="742" y="254">Route Dispatcher</text>
-      <text class="sub" x="742" y="271">opinion/knowledge → task_context</text>
-      <text class="sub" x="742" y="285">risky/moral → abstain (uniform)</text>
-      <text class="sub" x="742" y="299">other → calibrated_commitment</text>
+      <rect x="616" y="228" width="252" height="68" fill="#1f1e1a" stroke="#555"/>
+      <text x="742" y="252">Coverage Policy</text>
+      <text class="sub" x="742" y="269">risky choice / moral dilemma</text>
+      <text class="sub" x="742" y="283">→ abstain (return uniform)</text>
+      <text class="sub" x="742" y="297">known-unreliable domains</text>
     </g>
 
     <!-- Cold Path -->
@@ -550,11 +551,11 @@ const NODE_DATA = {
     rationale: 'Purchase propensity is sensitive to context that neither surveys nor individual history fully captures. External signals improve confound attribution and drift detection without requiring private customer data.'
   },
   bridge: {
-    title: 'Survey → Behavioral Bridge',
-    badge: 'Bootstrap', badgeColor: '#CE93D8',
-    in: 'Survey distributions + demographic segment definitions. Attitude-behavior correlation prior (r ≈ 0.4–0.6).',
-    out: 'Synthetic pseudo-transaction logs tagged with provenance. Phase 0 Centaur training corpus. L3 cold-start posteriors.',
-    rationale: 'Solves the cold-start problem: real behavioral data starts at zero on day one. Sampling N synthetic individuals from survey distributions and assigning behavioral propensities gives a trainable corpus from day one. Fidelity is bounded by the attitude-behavior correlation; the gap closes as real data arrives.'
+    title: 'Data Normalization Layer',
+    badge: 'Normalization', badgeColor: '#CE93D8',
+    in: 'Surveys (population distributions), transaction logs, experimental data — all heterogeneous formats.',
+    out: 'Canonical single-choice behavioral records (agent_id, context, choice, provenance, weight). All downstream components see one format.',
+    rationale: 'The survey-to-behavioral bridge is one path in this layer: sample N synthetic individuals from survey distributions, assign behavioral propensities (r ≈ 0.4–0.6), generate pseudo-events. Behavioral ETL and experimental data normalization are the other paths. Unification enables Centaur to train on all sources and makes the L1–L4 stack format-agnostic.'
   },
   l1: {
     title: 'L1 — Raw Outcome Store',
@@ -592,18 +593,18 @@ const NODE_DATA = {
     rationale: 'Following Binz et al. (2024): fine-tuning on behavioral data encodes shared decision-making structure in weights, generalizing across tasks. Cross-domain transfer to e-commerce is an empirical question — validated on a held-out cross-tenant test before asserting transfer. The only principled cross-tenant learning mechanism.'
   },
   classifier: {
-    title: 'Task Classifier',
-    badge: 'Routing', badgeColor: '#FFD54F',
-    in: 'Question stem + respondent/survey context. One LLM call per unique stem; memoized in-process + on-disk cache.',
-    out: 'Task kind: opinion_survey / knowledge / risky_choice / moral_dilemma / personality_scale / other.',
-    rationale: 'Validated in Stage 15/16: LLMTaskClassifier generalizes across datasets with zero per-dataset parameters. The classifier sees question content, not dataset identity — so an unseen dataset of a known kind is handled correctly from day one.'
+    title: 'Task/Environment Enrichment',
+    badge: 'Enrichment', badgeColor: '#FFD54F',
+    in: 'Query + segment + offer context + individual history. Retrieved priors from L3.',
+    out: 'Enriched prompt: decision environment description, task structure, behavioral priors. Versioned enrichment config applied.',
+    rationale: 'Part I showed the gain from task_context came from richer environmental description, not from routing dispatch. Universal enrichment — always conditioning on structured task/environment context — is more defensible than a brittle classifier. The enrichment configuration is a learned, gated artifact updated the same way calibrators are.'
   },
   router: {
-    title: 'Route Dispatcher',
-    badge: 'Routing', badgeColor: '#FFD54F',
-    in: 'Task kind from classifier. Data volume from L3/L4.',
-    out: 'Dispatches to: task_context (ICL siblings), abstain (uniform), calibrated_commitment (base), or behavioral-specific intervention.',
-    rationale: 'KIND_ROUTES is the val-confirmed dispatch table from Stage 16. Val grouped +1.89, pooled +1.10 over the prior champion. Voting overfit dev and was dropped — the gate does its job. Routes are configurable per deployment; different commercial contexts have different optimal maps.'
+    title: 'Coverage Policy',
+    badge: 'Guardrail', badgeColor: '#888',
+    in: 'Enriched query. Task context type.',
+    out: 'For known-unreliable contexts (risky choice, moral dilemma at low n): return uniform distribution. Otherwise: pass to cold/warm/hot path.',
+    rationale: 'Abstain-on-uncertainty is a coverage policy, not a routing strategy. The Part I lesson: uniform strictly dominates model output on risky choice and moral dilemma tasks. This boundary is preserved — but it's separate from how we enrich predictions for contexts where we do predict.'
   },
   cold: {
     title: 'Cold Path (n < 100)',
