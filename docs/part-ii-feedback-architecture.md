@@ -13,7 +13,7 @@ What transfers from Part I is not the specific numbers but the *methodology*: th
 
 Three structural bets define this architecture:
 
-**1. Task-kind routing as a generalizable architecture lever.** Part I demonstrated that a question-content classifier dispatching to task-appropriate interventions outperforms any single uniform approach, with zero per-dataset tuning for the positive routes. In the commercial system, this principle extends: behavioral prediction tasks are also not uniform, and a routing layer that dispatches by prediction task type — purchase propensity, response-to-offer, segment comparison, churn prediction — will outperform a single model applied uniformly. The routing table is a first-class configurable artifact per deployment.
+**1. Routing as a continuously learned artifact, not a static dispatch map.** Part I demonstrated that a task-content classifier dispatching to task-appropriate prompt strategies outperforms any uniform approach — and that the correct routing is empirically discovered, not assumed (the `risky_choice → voting` route looked good on dev, failed on val, and was dropped). In the commercial system, this principle extends fully: the routing table (task kind → prompt strategy) is a versioned, gated, data-driven artifact updated through the same protocol as calibrators. Prompt strategy within task context becomes a continuously improvable lever — new strategies are introduced, shadowed against the current route, and promoted when they clear the lift test. The commercial task taxonomy (`behavioral_propensity`, `offer_response`, `segment_comparison`, `churn_risk`) is largely untested territory; the correct routes will be discovered empirically as outcome data accumulates, not assumed by analogy to the survey domain.
 
 **2. Survey-to-behavioral bridge for Centaur bootstrap.** Before real transaction data accumulates, we are not starting from nothing: we have survey distributions. These can be transformed into synthetic pseudo-populations of behavioral choices — sampling N individuals from each distribution, assigning demographic profiles and plausible behavioral propensities, constructing pseudo-transaction logs with calibrated noise. This synthetic corpus bootstraps the Centaur training from day one, with a known fidelity gap to be measured and closed as real data arrives.
 
@@ -83,21 +83,21 @@ Four lessons from Part I carry forward regardless of domain:
 
 ### Honest Scope of the SimBench Results
 
-SimBench is a distribution-over-discrete-options prediction task: given a survey question and demographic segment, predict what fraction of respondents chose each answer. This is a real and difficult problem, and the results are meaningful — but it is not behavioral prediction.
+SimBench is a distribution-over-discrete-options prediction task: given a survey question and demographic segment, predict what fraction of respondents chose each answer. This is a real and difficult problem, and the results are meaningful — but it is not behavioral prediction, and the commercial system must not be designed as if it were.
 
 What SimBench measures:
-- Population-level distributional accuracy over a fixed option set
-- Ability to condition on a demographic segment
-- Generalization across survey instruments and topic areas
+- Population-level distributional accuracy over a fixed, known option set
+- Ability to condition on a demographic segment defined in text
+- Generalization across survey instruments and topic areas (within the survey domain)
 
-What commercial behavioral data adds:
-- Individual-level event sequences (who bought what, when, in response to what stimulus)
-- Temporal dynamics (drift, churn, re-engagement cycles)
-- Confound richness (price, availability, placement, promotion interacted with individual history)
-- Cross-item effects (basket composition, substitution, complementarity)
-- No fixed option set — the "choices" include browse-without-purchase, cart abandonment, return
+What commercial behavioral data adds — and SimBench cannot prepare us for:
+- **Individual-level event sequences**: who bought what, when, in response to what stimulus. Not a distribution over options but a stream of timestamped individual events. The learning target is fundamentally different.
+- **Temporal dynamics**: drift, churn, re-engagement cycles. Survey distributions are relatively stable within a wave. Consumer behavior shifts week to week.
+- **Confound richness**: price, availability, placement, promotion interacted with individual purchase history. The raw behavioral signal conflates propensity with opportunity in ways survey responses do not.
+- **No fixed option set**: the "choices" include browse-without-purchase, cart abandonment, return, delayed purchase, repeat purchase. The outcome space is open-ended.
+- **Untested routing**: the KIND_ROUTES validated in Part I cover survey task kinds. The commercial kinds (`behavioral_propensity`, `offer_response`, `churn_risk`) have no validated routes yet. Routing here will require empirical discovery from behavioral outcome data.
 
-The transition from SimBench to commercial data is not a straight-line extrapolation. It is a domain shift. The methodology validates; the specific scores do not.
+The transition from SimBench to commercial data is a domain shift, not an extrapolation. The methodology validates — routing, prediction ledger, gated updates, signal routing by type. The specific scores do not. A system achieving 55.57 grouped on SimBench may be completely wrong about purchase propensity, and a system that predicts purchase propensity well may score poorly on SimBench. They are measuring different things.
 
 ---
 
@@ -396,7 +396,31 @@ Once 100+ labeled outcomes exist for a segment × kind, fit a calibrator from L2
 - **behavioral_propensity**: logistic recalibration of the LLM's propensity estimate against realized purchase rates. The LLM's zero-shot behavioral estimate is genuinely OOD and will have systematic bias; a simple platt-scaling logistic calibrator per segment is the first correction.
 - **offer_response**: calibrate by offer-context bucket; the LLM tends to overestimate promotional lift for unfamiliar offer structures.
 
-The routing table (KIND_ROUTES in L4) is a first-class configurable artifact per deployment. A retail engagement, a media engagement, and a financial services engagement will have different optimal routes for the same task kind — because the data characteristics differ. The Part I KIND_ROUTES is the validated starting point; per-deployment tuning on dev data with the same gated protocol refines it.
+### The Routing Table as a Continuously Learned Artifact
+
+The routing table is not a config file — it is a first-class gated artifact, versioned and updated through the same five-step protocol as calibrators. This is the key architectural consequence of the Part I routing lesson: the correct route for a task kind is empirically discovered, not assumed.
+
+For each task kind *k*, the optimal route *r\*(k)* is determined by:
+
+```
+r*(k) = argmax_r E[TVD_improvement(r) | task_kind = k, n_outcomes ≥ threshold]
+```
+
+evaluated on held-out outcomes from L2. When sufficient labeled outcomes exist for a task kind, the routing choice becomes testable. A new prompt strategy (e.g., a chain-of-thought approach for offer-response tasks, or a contrastive framing for churn-risk tasks) is introduced as a challenger route, shadowed against the current route for that kind, and promoted if it clears the Blum-Hardt lift threshold.
+
+This is precisely what "prompt strategy within task context as a lever" means operationally: not that prompting is a knob to tune manually, but that the routing table is a structured space of prompt strategy choices that is searched and validated by the same data-driven process that governs every other component of the system.
+
+For the commercial task taxonomy, the starting routing table is an informed prior, not a validated result:
+
+| commercial kind | starting route (prior) | basis |
+|---|---|---|
+| `behavioral_propensity` | Centaur backbone + warm calibration | LLM is OOD; calibration required |
+| `offer_response` | offer-context ICL from L3 | analogous to task_context on surveys |
+| `segment_comparison` | delta prediction (§2 design) | avoids distorting population prior |
+| `churn_risk` | abstain until n ≥ 500 | high-stakes; cold prediction is unreliable |
+| `opinion_survey` | task_context (val-confirmed) | direct transfer from Part I |
+
+Each of these routes will be confirmed, modified, or replaced as behavioral outcome data accumulates for that kind.
 
 ### Hot Path — Centaur Fine-Tune (n ≥ 10k, stable, ceiling)
 
@@ -654,7 +678,9 @@ Stage 16 mechanism analysis showed that predictions remain ~0.06 too diffuse (pr
 
 ## Design Decisions and Tradeoffs
 
-**Why method routing, not a single model.** The Part I evidence is unambiguous: no single prompt strategy dominates across task kinds. The routing architecture trades a classifier overhead (one extra LLM call per unique question stem, cached) for substantial prediction quality improvement. In the commercial setting, the stakes are higher and the task heterogeneity is at least as large; the routing architecture is even more justified.
+**Why method routing, not a single model.** The Part I evidence is unambiguous: no single prompt strategy dominates across task kinds. The routing architecture trades a classifier overhead (one extra LLM call per unique question stem, cached) for substantial prediction quality improvement. In the commercial setting, the stakes are higher and the task heterogeneity is at least as large; the routing architecture is even more justified. And critically: the routing table is itself a learning artifact. The dev-to-val reversal on `risky_choice → voting` is the clearest illustration of why routes must be gated, not assumed — a route that looks good on dev can fail systematically on held-out data. The commercial task kinds are new territory and their optimal routes are unknown; treating the routing table as a versioned, gated artifact means that uncertainty is handled by the architecture, not assumed away.
+
+**Why the SimBench numbers are framing, not targets.** The commercial problem differs from SimBench in ways that matter structurally: individual-level data vs. population distributions, temporal sequences vs. cross-sectional snapshots, confounded behavioral signals vs. clean survey options, open outcome spaces vs. fixed option sets. A system optimized to maximize SimBench scores would make the wrong tradeoffs for commercial behavioral prediction. The Part I numbers are cited here as proof that the methodology works — routing generalizes, the prediction ledger enforces honest evaluation, gated validation catches overfitting — not as performance targets for the commercial system.
 
 **Why the bridge, not waiting for real data.** Waiting for real behavioral data before starting Centaur training means months of cold-start on a weak prior. The bridge produces a synthetic corpus that is better than nothing, has known provenance, and degrades gracefully as real data accumulates. The cost of the bridge (generating synthetic data) is negligible relative to the cost of deploying a behavioral simulator on a weak prior for months.
 
@@ -662,4 +688,3 @@ Stage 16 mechanism analysis showed that predictions remain ~0.06 too diffuse (pr
 
 **Why shared weights, not shared data.** Per-tenant data cannot cross tenant boundaries (privacy, commercial, legal). Model weights can, because they encode learned structure, not records. This is the same argument that makes foundation model pretraining on internet text legitimate: the weights encode patterns, not individuals. The Centaur approach extends this to behavioral data.
 
-**Why the SimBench numbers are framing, not validation.** The supervised framing of the commercial problem is different from SimBench in ways that matter: richer signals, individual-level data, behavioral confounds, temporal dynamics. A system that achieves good SimBench scores might still be wrong about purchase propensity, and vice versa. The SimBench results validate the methodology — routing generalizes, the prediction ledger discipline enforces honest evaluation, gated validation catches overfitting — not the specific commercial predictions.
