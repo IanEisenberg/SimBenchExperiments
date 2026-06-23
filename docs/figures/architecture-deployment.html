@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scrye — Deployment Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 28px 14px;
+    border-bottom: 1px solid #21262d;
+  }
+  header h1 { font-size: 1.25rem; font-weight: 600; color: #e6edf3; }
+  header p { font-size: 0.8rem; color: #8b949e; margin-top: 3px; }
+
+  .diagram-container { position: relative; padding: 20px; }
+  svg#arch { width: 100%; display: block; }
+
+  .box rect { rx: 6; ry: 6; stroke-width: 1.5; }
+  .box text { fill: #e6edf3; font-size: 11.5px; font-weight: 600; dominant-baseline: middle; text-anchor: middle; pointer-events: none; }
+  .box .stack { font-size: 9.5px; fill: #8b949e; font-weight: 400; }
+
+  .row-label { fill: #30363d; font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+  .row-bg { fill: #161b22; }
+
+  .edge { fill: none; stroke-width: 1.4; opacity: 0.55; }
+  .edge-storage { stroke: #4FC3F7; }
+  .edge-model   { stroke: #FF8A65; }
+  .edge-gate    { stroke: #FFD54F; }
+  .edge-serve   { stroke: #81C784; }
+  .edge-found   { stroke: #80DEEA; }
+  .edge-fb      { stroke: #EF9A9A; }
+  .edge-data    { stroke: #8b949e; }
+
+  .edge-label {
+    fill: #8b949e;
+    font-size: 9px;
+  }
+
+  .legend {
+    position: absolute; bottom: 28px; right: 28px;
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 12px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .legend-title { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: #8b949e; text-transform: uppercase; margin-bottom: 2px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: #c9d1d9; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scrye — Deployment Architecture</h1>
+  <p>Infrastructure building blocks for the commercial behavioral simulator &nbsp;·&nbsp; 6 deployment layers</p>
+</header>
+
+<div class="diagram-container">
+<svg id="arch" viewBox="0 0 1060 740" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a-stor" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
+    <marker id="a-modl" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FF8A65"/></marker>
+    <marker id="a-gate" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
+    <marker id="a-serv" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
+    <marker id="a-fnd"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#80DEEA"/></marker>
+    <marker id="a-fb"   markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#EF9A9A"/></marker>
+    <marker id="a-data" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b949e"/></marker>
+  </defs>
+
+  <!-- ══════════════════════════════════════
+       ROW 1 — CLIENT DATA SOURCES
+  ═══════════════════════════════════════ -->
+  <rect class="row-bg" x="10"  y="10"  width="1040" height="92" rx="6"/>
+  <text class="row-label" x="530" y="30">Client Data Sources</text>
+
+  <!-- Transaction API -->
+  <g class="box" id="b-txapi">
+    <rect x="60"  y="44" width="200" height="44" fill="#1a1f2e" stroke="#FF8A65"/>
+    <text x="160" y="62">Transaction API</text>
+    <text class="stack" x="160" y="78">webhook · batch upload</text>
+  </g>
+
+  <!-- Survey Import -->
+  <g class="box" id="b-survey">
+    <rect x="420" y="44" width="200" height="44" fill="#1a2432" stroke="#4FC3F7"/>
+    <text x="520" y="62">Survey Import</text>
+    <text class="stack" x="520" y="78">CSV · REST API · wave files</text>
+  </g>
+
+  <!-- Experimental / Public Data -->
+  <g class="box" id="b-expdata">
+    <rect x="790" y="44" width="220" height="44" fill="#1a1e2e" stroke="#80DEEA"/>
+    <text x="900" y="62">Experimental Data</text>
+    <text class="stack" x="900" y="78">Psych-101 · SimBench · public</text>
+  </g>
+
+  <!-- ══════════════════════════════════════
+       ROW 2 — INGESTION + NORMALIZATION
+  ═══════════════════════════════════════ -->
+  <rect class="row-bg" x="10" y="114" width="1040" height="100" rx="6"/>
+  <text class="row-label" x="530" y="134">Ingestion + Normalization</text>
+
+  <!-- Behavioral ETL -->
+  <g class="box" id="b-etl">
+    <rect x="60"  y="148" width="200" height="52" fill="#1a2020" stroke="#FF8A65"/>
+    <text x="160" y="166">Behavioral ETL</text>
+    <text class="stack" x="160" y="182">deconfound · normalize</text>
+    <text class="stack" x="160" y="194">provenance=behavioral · w=1.0</text>
+  </g>
+
+  <!-- Survey Bridge -->
+  <g class="box" id="b-bridge">
+    <rect x="356" y="148" width="200" height="52" fill="#1e1a2e" stroke="#CE93D8"/>
+    <text x="456" y="166">Survey Bridge</text>
+    <text class="stack" x="456" y="182">sample N individuals</text>
+    <text class="stack" x="456" y="194">assign propensity r≈0.4–0.6</text>
+  </g>
+
+  <!-- Normalization Service -->
+  <g class="box" id="b-norm">
+    <rect x="648" y="148" width="200" height="52" fill="#1e1a2e" stroke="#CE93D8" stroke-width="2"/>
+    <text x="748" y="166">Normalization Service</text>
+    <text class="stack" x="748" y="182">canonical behavioral record</text>
+    <text class="stack" x="748" y="194">{agent_id, context, choice, prov, w}</text>
+  </g>
+
+  <!-- Exp ETL -->
+  <g class="box" id="b-expetl">
+    <rect x="862" y="148" width="150" height="52" fill="#1a1e2e" stroke="#80DEEA"/>
+    <text x="937" y="166">Exp ETL</text>
+    <text class="stack" x="937" y="182">domain weight</text>
+    <text class="stack" x="937" y="194">provenance=exp</text>
+  </g>
+
+  <!-- ══════════════════════════════════════
+       ROW 3 — STORAGE LAYER
+  ═══════════════════════════════════════ -->
+  <rect class="row-bg" x="10" y="226" width="1040" height="108" rx="6"/>
+  <text class="row-label" x="530" y="246">Storage Layer (per-tenant, data-isolated)</text>
+
+  <!-- L1 -->
+  <g class="box" id="b-l1">
+    <rect x="40"  y="260" width="218" height="60" fill="#1a2520" stroke="#4FC3F7"/>
+    <text x="149" y="280">L1 · Raw Outcome Store</text>
+    <text class="stack" x="149" y="296">S3 / Parquet</text>
+    <text class="stack" x="149" y="310">append-only · per-tenant encryption</text>
+  </g>
+
+  <!-- L2 -->
+  <g class="box" id="b-l2">
+    <rect x="278" y="260" width="218" height="60" fill="#1f1a1a" stroke="#EF9A9A"/>
+    <text x="387" y="280">L2 · Prediction Ledger</text>
+    <text class="stack" x="387" y="296">DuckDB / columnar Parquet</text>
+    <text class="stack" x="387" y="310">stamped · outcome-linked</text>
+  </g>
+
+  <!-- L3 -->
+  <g class="box" id="b-l3">
+    <rect x="516" y="260" width="218" height="60" fill="#1a2020" stroke="#80DEEA"/>
+    <text x="625" y="280">L3 · Segment Posteriors</text>
+    <text class="stack" x="625" y="296">Redis (hot) + S3 (cold)</text>
+    <text class="stack" x="625" y="310">EMA-weighted · TTL eviction</text>
+  </g>
+
+  <!-- L4 -->
+  <g class="box" id="b-l4">
+    <rect x="754" y="260" width="256" height="60" fill="#211f1a" stroke="#FFD54F"/>
+    <text x="882" y="280">L4 · Calibrator Cache</text>
+    <text class="stack" x="882" y="296">route params: JSON · LoRA: safetensors</text>
+    <text class="stack" x="882" y="310">versioned · 30-day rollback</text>
+  </g>
+
+  <!-- ══════════════════════════════════════
+       ROW 4 — MODEL LAYER
+  ═══════════════════════════════════════ -->
+  <rect class="row-bg" x="10" y="346" width="1040" height="114" rx="6"/>
+  <text class="row-label" x="530" y="366">Model Layer</text>
+
+  <!-- OpenRouter / vLLM -->
+  <g class="box" id="b-llm">
+    <rect x="40"  y="380" width="240" height="66" fill="#1a1f2e" stroke="#FF8A65"/>
+    <text x="160" y="400">OpenRouter / vLLM</text>
+    <text class="stack" x="160" y="416">OpenAI-compatible API · single key</text>
+    <text class="stack" x="160" y="430">vendor swap = model string change</text>
+    <text class="stack" x="160" y="442">self-host (A100/H100) at &gt;10k/day</text>
+  </g>
+
+  <!-- Task/Env Enrichment Service -->
+  <g class="box" id="b-enrich">
+    <rect x="360" y="380" width="250" height="66" fill="#1e1e1a" stroke="#FFD54F"/>
+    <text x="485" y="400">Enrichment Service</text>
+    <text class="stack" x="485" y="416">augments query with context</text>
+    <text class="stack" x="485" y="430">retrieves L3 priors (k-NN)</text>
+    <text class="stack" x="485" y="442">versioned config · gated updates</text>
+  </g>
+
+  <!-- Centaur LoRA Fine-tune -->
+  <g class="box" id="b-centaur">
+    <rect x="692" y="380" width="318" height="66" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/>
+    <text x="851" y="400">Centaur Foundation · LoRA Fine-tune</text>
+    <text class="stack" x="851" y="416">GPU batch job · A100 spot · monthly</text>
+    <text class="stack" x="851" y="430">training corpus: bridge → real behavioral</text>
+    <text class="stack" x="851" y="442">cross-tenant agg · W&amp;B experiment tracking</text>
+  </g>
+
+  <!-- ══════════════════════════════════════
+       ROW 5 — EVALUATION + UPDATE GATE
+  ═══════════════════════════════════════ -->
+  <rect class="row-bg" x="10" y="472" width="1040" height="108" rx="6"/>
+  <text class="row-label" x="530" y="492">Evaluation + Update Gate</text>
+
+  <!-- Shadow Eval -->
+  <g class="box" id="b-shadow">
+    <rect x="40"  y="506" width="188" height="60" fill="#221a0a" stroke="#FFD54F"/>
+    <text x="134" y="524">Shadow Eval</text>
+    <text class="stack" x="134" y="540">≥1k preds / 2 weeks</text>
+    <text class="stack" x="134" y="554">challenger vs. champion</text>
+  </g>
+
+  <!-- Lift Test -->
+  <g class="box" id="b-lift">
+    <rect x="244" y="506" width="200" height="60" fill="#221a0a" stroke="#FFD54F"/>
+    <text x="344" y="524">Lift Test</text>
+    <text class="stack" x="344" y="540">Blum-Hardt η threshold</text>
+    <text class="stack" x="344" y="554">bootstrap CI on L2 holdout</text>
+  </g>
+
+  <!-- Reliability Ceiling -->
+  <g class="box" id="b-ceil">
+    <rect x="460" y="506" width="200" height="60" fill="#221a0a" stroke="#FFD54F"/>
+    <text x="560" y="524">Reliability Ceiling</text>
+    <text class="stack" x="560" y="540">finite-n ground-truth noise</text>
+    <text class="stack" x="560" y="554">hard cap on claimed gains</text>
+  </g>
+
+  <!-- Drift Check -->
+  <g class="box" id="b-drift">
+    <rect x="676" y="506" width="178" height="60" fill="#221a0a" stroke="#FFD54F"/>
+    <text x="765" y="524">Drift Check</text>
+    <text class="stack" x="765" y="540">PSI on input distribution</text>
+    <text class="stack" x="765" y="554">alert if PSI &gt; 0.2</text>
+  </g>
+
+  <!-- Human Sign-off -->
+  <g class="box" id="b-human">
+    <rect x="870" y="506" width="162" height="60" fill="#1a1020" stroke="#CE93D8"/>
+    <text x="951" y="524">Human Sign-off</text>
+    <text class="stack" x="951" y="540">required for fine-tune</text>
+    <text class="stack" x="951" y="554">LoRA / Centaur ships</text>
+  </g>
+
+  <!-- ══════════════════════════════════════
+       ROW 6 — SERVING + MONITORING
+  ═══════════════════════════════════════ -->
+  <rect class="row-bg" x="10" y="592" width="1040" height="108" rx="6"/>
+  <text class="row-label" x="530" y="612">Serving + Monitoring</text>
+
+  <!-- Prediction API -->
+  <g class="box" id="b-api">
+    <rect x="60"  y="626" width="240" height="60" fill="#152015" stroke="#81C784" stroke-width="2"/>
+    <text x="180" y="645">Prediction API</text>
+    <text class="stack" x="180" y="661">REST · OpenAI-compatible</text>
+    <text class="stack" x="180" y="675">→ client · latency SLA</text>
+  </g>
+
+  <!-- Drift Monitor -->
+  <g class="box" id="b-monitor">
+    <rect x="400" y="626" width="240" height="60" fill="#1f1a0a" stroke="#FFD54F"/>
+    <text x="520" y="645">Drift Monitor</text>
+    <text class="stack" x="520" y="661">PSI alerts · outcome rate tracking</text>
+    <text class="stack" x="520" y="675">auto-rollback if TVD +2σ</text>
+  </g>
+
+  <!-- Admin Dashboard -->
+  <g class="box" id="b-admin">
+    <rect x="752" y="626" width="248" height="60" fill="#1a1a1a" stroke="#8b949e"/>
+    <text x="876" y="645">Admin Dashboard</text>
+    <text class="stack" x="876" y="661">model versions · champion/challenger</text>
+    <text class="stack" x="876" y="675">rollback · Centaur corpus status</text>
+  </g>
+
+  <!-- ══════════════════════════════════════
+       EDGES
+  ═══════════════════════════════════════ -->
+
+  <!-- Row 1 → Row 2 -->
+  <!-- Transaction API → Behavioral ETL -->
+  <path class="edge edge-model" marker-end="url(#a-modl)" d="M160,88 V148"/>
+  <!-- Survey → Survey Bridge + Norm -->
+  <path class="edge edge-storage" marker-end="url(#a-stor)" d="M520,88 V148"/>
+  <!-- Exp data → Exp ETL -->
+  <path class="edge edge-found" marker-end="url(#a-fnd)" d="M900,88 V148"/>
+
+  <!-- ETL → Norm -->
+  <path class="edge edge-model" marker-end="url(#a-modl)" d="M260,174 H648"/>
+  <!-- Bridge → Norm -->
+  <path class="edge edge-storage" marker-end="url(#a-stor)" d="M556,174 H648"/>
+  <!-- Exp ETL → Norm -->
+  <path class="edge edge-found" marker-end="url(#a-fnd)" d="M862,174 C840,174 860,174 848,174"/>
+
+  <!-- Row 2 → Row 3 (Normalization → L1) -->
+  <path class="edge edge-storage" marker-end="url(#a-stor)" d="M748,200 C748,220 149,240 149,260"/>
+  <!-- Small label -->
+  <text class="edge-label" x="380" y="242">→ L1</text>
+
+  <!-- L1 → L2 (ledger stamp) -->
+  <path class="edge edge-fb" marker-end="url(#a-fb)" d="M258,290 H278"/>
+  <text class="edge-label" x="261" y="284">stamp</text>
+
+  <!-- L2 → L3 (aggregation) -->
+  <path class="edge edge-storage" marker-end="url(#a-stor)" d="M496,290 H516"/>
+  <text class="edge-label" x="499" y="284">agg</text>
+
+  <!-- L3 → L4 (via gate) -->
+  <path class="edge edge-gate" stroke-dasharray="5,3" marker-end="url(#a-gate)" d="M734,290 H754"/>
+
+  <!-- Row 3 → Row 4 -->
+  <!-- L3 → Enrichment Service (k-NN retrieval) -->
+  <path class="edge edge-gate" marker-end="url(#a-gate)" d="M625,320 C625,350 485,360 485,380"/>
+  <text class="edge-label" x="540" y="358">k-NN</text>
+
+  <!-- L4 → OpenRouter (calibrator load) -->
+  <path class="edge edge-gate" marker-end="url(#a-gate)" d="M882,320 C882,350 400,380 400,380"/>
+  <text class="edge-label" x="680" y="358">calibrator load</text>
+
+  <!-- Centaur → L4 (backbone weights) -->
+  <path class="edge edge-found" stroke-dasharray="5,3" marker-end="url(#a-fnd)" d="M851,380 C820,360 882,340 882,320"/>
+
+  <!-- Row 4 → Row 5 -->
+  <!-- OpenRouter → Shadow Eval (via predictions) -->
+  <path class="edge edge-gate" marker-end="url(#a-gate)" d="M160,446 C160,470 134,490 134,506"/>
+  <!-- L2 → Lift Test -->
+  <path class="edge edge-fb" marker-end="url(#a-fb)" d="M387,320 C387,340 344,490 344,506"/>
+  <text class="edge-label" x="395" y="380">holdout</text>
+
+  <!-- Row 5 → Row 3 (Gate → L4 promote) -->
+  <path class="edge edge-gate" stroke-dasharray="5,3" marker-end="url(#a-gate)" d="M344,506 C344,350 800,340 854,320"/>
+  <text class="edge-label" x="600" y="416">PASS: promote</text>
+
+  <!-- Row 5 → Row 4 (Gate → Centaur promote) -->
+  <path class="edge edge-found" stroke-dasharray="5,3" marker-end="url(#a-fnd)" d="M851,506 V446"/>
+
+  <!-- Row 4 → Row 6 -->
+  <!-- OpenRouter → Prediction API -->
+  <path class="edge edge-serve" marker-end="url(#a-serv)" d="M160,446 C160,540 180,610 180,626"/>
+
+  <!-- Row 6 — feedback stamp -->
+  <!-- Prediction API → L2 (stamp prediction) -->
+  <path class="edge edge-fb" stroke-dasharray="5,3" marker-end="url(#a-fb)" d="M180,626 C180,560 387,340 387,320"/>
+  <!-- Monitor → Rollback -->
+  <path class="edge edge-gate" stroke-dasharray="4,3" marker-end="url(#a-gate)" d="M520,626 C520,560 882,360 882,320"/>
+  <text class="edge-label" x="700" y="530">auto-rollback</text>
+
+</svg>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-title">Layer / Concern</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Storage / data</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FF8A65"></div>Compute / model</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Evaluation / gate</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Serving / API</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Centaur / foundation</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback / stamp</div>
+</div>
+</div>
+</body>
+</html>
