@@ -473,12 +473,12 @@ SLIDES.append(section(
 # --- Cross-task / cross-group ----------------------------------------------
 SLIDES.append(figslide(
     20, "05 · The result",
-    "Where it works — by group and by task.",
-    "Split by population vs grouped, then by task kind: strongest on <b>grouped opinion surveys</b> (50.9 — the bulk of SimBench), weakest on behavioral items — risky-choice sits at ~uniform, exactly where we abstain. The system is good where survey-style elicitation has signal.",
+    "By task — our system vs the faithful baseline.",
+    "Absolute SimBench S (<b>0 = uniform · 100 = perfect</b>, not a delta vs the paper) per task kind, faithful baseline → our final system. Our method <b>lifts every kind</b>: the biggest is the <b>abstention rescue on risky-choice</b> (−38 → ~0), then opinion surveys (the bulk, 46 → 51), personality, moral dilemmas, and 'other'; knowledge was already fine. Strongest where survey-style elicitation has signal. Smaller kinds carry wider CIs.",
     "18_cross_task",
-    "Source: <code>scrye.decompose</code> on <code>2026-06-21-decomp-final</code> (final system, dev) · task-kind map",
-    label="By group & task", maxh=520,
-    notes="Where does the system actually work? Split by population versus grouped, and within each by task kind. Strongest on grouped opinion surveys — the bulk of SimBench — and weakest on behavioral tasks, where risky-choice sits at uniform because we abstain there. We're good precisely where survey-style elicitation has signal."))
+    "Source: <code>scrye.decompose</code> on <code>2026-06-21-decomp-final</code> (faithful vs final, dev) · task-kind map",
+    label="By task", maxh=540,
+    notes="Where does our method actually help? This is absolute SimBench S by task kind — zero is the uniform baseline, a hundred is perfect — for the faithful baseline versus our final system. Our method lifts every kind. The most dramatic is risky-choice, rescued from catastrophic, about minus thirty-eight, up to roughly uniform by abstention. Opinion surveys, the bulk of SimBench, are our strongest at around fifty. Knowledge was already fine and barely moves. These are absolute scores per kind, not a delta versus the paper."))
 
 # --- 17 · Limitations -------------------------------------------------------
 SLIDES.append(figslide(

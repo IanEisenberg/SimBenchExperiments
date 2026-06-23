@@ -495,37 +495,43 @@ DATASET_KIND = {
 
 
 def fig_cross_task():
-    df = frame(load("2026-06-21-decomp-final")["final_router"])
-    df["kind"] = df["dataset"].map(DATASET_KIND).fillna("other")
+    # Faithful baseline vs our system, absolute SimBench S, by task kind (legend).
+    data = load("2026-06-21-decomp-final")
     c = C(False)
-    order = ["opinion_survey", "knowledge", "personality_scale",
+    order = ["opinion_survey", "personality_scale", "knowledge",
              "moral_dilemma", "risky_choice", "other"]
-    nice = {"opinion_survey": "opinion survey", "knowledge": "knowledge",
-            "personality_scale": "personality scale", "moral_dilemma": "moral dilemma",
+    nice = {"opinion_survey": "opinion survey", "personality_scale": "personality",
+            "knowledge": "knowledge", "moral_dilemma": "moral dilemma",
             "risky_choice": "risky choice", "other": "other"}
-    fig, axes = plt.subplots(1, 2, figsize=(11.4, 4.6), sharex=True)
-    print("    [cross-task] our system, mean S by split × kind:")
-    for ax, (sp, title) in zip(axes, [("pop", "population"), ("grouped", "grouped / demographic")]):
-        rows = []
+    kcol = {"opinion_survey": GREEN, "personality_scale": "#6FA890",
+            "knowledge": "#9DBBAF", "moral_dilemma": AMBER,
+            "risky_choice": "#C99A3A", "other": GREY}
+    systems = [("faithful", "faithful @ 3.1\n(baseline)"), ("final_router", "our system")]
+    stats, ns = {}, {}
+    for skey, _ in systems:
+        df = frame(data[skey]); df["kind"] = df["dataset"].map(DATASET_KIND).fillna("other")
         for k in order:
-            s = df[(df["kind"] == k) & (df["splitname"] == sp)]["score"]
-            if len(s) >= 5:
-                m, lo, hi = mean_ci(s)
-                rows.append((nice[k], m, lo, hi, len(s)))
-                print(f"      {sp:8s} {k:18s} S={m:7.1f}  [{lo:.1f}, {hi:.1f}]  n={len(s)}")
-        rows.sort(key=lambda r: r[1])
-        y = np.arange(len(rows))
-        for i, (lab, m, lo, hi, n) in enumerate(rows):
-            ax.barh(i, m, color=GREEN if m > 0 else GREY, height=0.6, alpha=0.92)
-            ax.plot([lo, hi], [i, i], color=INK, lw=1.5)
-            ax.text(max(m, hi) + 1.5, i, f"n={n}", va="center", fontsize=9, color=SEC)
-        ax.set_yticks(y); ax.set_yticklabels([r[0] for r in rows])
-        ax.axvline(0, color=GREY, lw=1.2, ls="--")
-        ax.set_title(title, fontsize=13)
-        ax.set_xlabel("our system — SimBench S  (95% CI)")
-        _apply(ax, c)
-    fig.suptitle("Where the system works: population vs grouped, by task kind  (dev)", fontsize=14)
-    fig.tight_layout()
+            s = df[df["kind"] == k]["score"]
+            stats[(skey, k)] = mean_ci(s) if len(s) else (np.nan, np.nan, np.nan)
+            ns[k] = len(s)
+    print("    [cross-task] mean S by kind (faithful -> ours):")
+    for k in order:
+        print(f"      {k:18s} {stats[('faithful', k)][0]:6.1f} -> {stats[('final_router', k)][0]:6.1f}  (n={ns[k]})")
+    fig, ax = plt.subplots(figsize=(9.8, 5.0))
+    nk = len(order); w = 0.82 / nk
+    xb = np.arange(len(systems))
+    for j, k in enumerate(order):
+        means = [stats[(s, k)][0] for s, _ in systems]
+        los = [stats[(s, k)][0] - stats[(s, k)][1] for s, _ in systems]
+        his = [stats[(s, k)][2] - stats[(s, k)][0] for s, _ in systems]
+        ax.bar(xb + (j - (nk - 1) / 2) * w, means, w, color=kcol[k], label=f"{nice[k]}  (n={ns[k]})",
+               yerr=[los, his], capsize=2, error_kw=dict(lw=1.0, ecolor=INK))
+    ax.axhline(0, color=INK, lw=1.0)
+    ax.set_xticks(xb); ax.set_xticklabels([s[1] for s in systems])
+    ax.set_ylabel("SimBench score  S   (0 = uniform · 100 = perfect)")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=3, fontsize=10)
+    ax.set_title("By task kind — faithful baseline vs our system  (dev)", fontsize=13)
+    _apply(ax, c)
     save(fig, "18_cross_task")
 
 
