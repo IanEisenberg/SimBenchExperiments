@@ -484,7 +484,7 @@ SLIDES.append(figslide(
 SLIDES.append(figslide(
     17, "06 · Limits",
     "The honest ceiling.",
-    "<b>Limits:</b> spread still ~0.06 too diffuse — <b>concentration error dominates the loss</b>; behavioral / value-action tasks stay hard; under-represented slices harder; single-model dependence. <b>Risks:</b> over-fit to SimBench templates; the model's gains may erode the method margin as base models improve; leakage risk in any tool-using extension.",
+    "<b>Where our error goes</b> (right): split each prediction's total error (TVD) into <i>concentration</i> (wrong spread) + <i>location</i> (wrong options). Our method shaved <b>location</b> (0.08 → 0.06), but the bigger term — <b>concentration</b>, our spread is still ~0.06 too diffuse — is <b>unchanged</b>. That's the ceiling. <b>Also:</b> behavioral / value-action tasks stay hard; under-represented slices harder; single-model dependence. <b>Risks:</b> over-fit to SimBench templates; model gains may erode the method margin; leakage in any tool-using extension.",
     "17_error_decomp",
     "Source: <code>scrye.decompose</code> · notebook 04 (<code>decomp-final</code>) · Stages 09 / 16",
     label="Limitations & risks", maxh=480,

@@ -208,18 +208,22 @@ def fig_error_decomp():
         dec = pd.DataFrame([decompose_error(r["pred"], r["truth"], r.get("options"))
                             for r in data[sysname]])
         rows.append((label, dec["concentration_err"].mean(), dec["location_err"].mean()))
-    fig, ax = plt.subplots(figsize=(6.6, 4.6))
     labels = [r[0] for r in rows]
     conc = [r[1] for r in rows]; loc = [r[2] for r in rows]
+    totals = [a + b for a, b in zip(conc, loc)]
+    fig, ax = plt.subplots(figsize=(7.4, 5.0))
     x = np.arange(len(rows))
-    ax.bar(x, conc, 0.55, color=GREEN, label="concentration error (wrong spread)")
-    ax.bar(x, loc, 0.55, bottom=conc, color=AMBER, label="location error (wrong options)")
+    ax.bar(x, conc, 0.5, color=GREEN, label="concentration  —  wrong spread (we stay too diffuse)")
+    ax.bar(x, loc, 0.5, bottom=conc, color=AMBER, label="location  —  mass on the wrong options")
     for i, (cc, ll) in enumerate(zip(conc, loc)):
-        ax.text(i, cc/2, f"{cc:.2f}", ha="center", va="center", color="white", fontsize=12)
-        ax.text(i, cc+ll/2, f"{ll:.2f}", ha="center", va="center", color="white", fontsize=12)
+        ax.text(i, cc / 2, f"{cc:.2f}", ha="center", va="center", color="white", fontsize=12.5)
+        ax.text(i, cc + ll / 2, f"{ll:.2f}", ha="center", va="center", color="white", fontsize=12.5)
+        ax.text(i, totals[i] + 0.006, f"total TVD {totals[i]:.2f}", ha="center", fontsize=10.5, color=INK)
     ax.set_xticks(x); ax.set_xticklabels(labels)
-    ax.set_ylabel("mean TVD  (concentration + location)")
-    ax.legend(loc="upper right")
+    ax.set_ylim(0, max(totals) * 1.16)
+    ax.set_ylabel("mean error  (TVD = concentration + location)")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=1, fontsize=11)
+    ax.set_title("Our gains are all on location — concentration (spread) is untouched", fontsize=12.5)
     _apply(ax, c)
     save(fig, "17_error_decomp")
 
