@@ -513,7 +513,7 @@ SLIDES.append(section(
         <div style="margin-top:auto;display:flex;align-items:flex-end;gap:12px;height:90px;opacity:.9;">{close_bars}</div>
         <div style="font-family:'Spectral';font-size:29px;line-height:1.25;color:{GREEN_L};margin-top:18px;">→ Part II: from benchmark to commercial feedback loop.</div>
       </div></div>'''
-    + '<div class="source">Source: Stages 13 / 16 / 18 · <code>docs/part-ii-feedback-architecture.md</code></div>',
+    + '<div class="source">Source: Stages 13 / 16 / 18 · <code>docs/presentation/part-ii-feedback-architecture.md</code></div>',
     dark=True, label="Extensions & close",
     notes="Future work isn't a wishlist — each item answers a failure from this talk. Agentic tool-use for the missing real-world signal. Multi-agent critique for the spread problem. More structured multi-step prompting, honestly flagged because our naive version lost. And a real model sweep, since the model is the dominant lever and we never explored it. The transferable asset is the discipline — which is exactly what Part II builds on."))
 

@@ -295,7 +295,7 @@ specific task.
 ## 6. Beyond the benchmark (Part II)
 
 A companion design document,
-[`part-ii-feedback-architecture.md`](part-ii-feedback-architecture.md), sketches
+[`part-ii-feedback-architecture.md`](presentation/part-ii-feedback-architecture.md), sketches
 how this methodology extends from static, population-level survey distributions to
 a **commercial system predicting individual behavioral outcomes** from transaction
 logs (purchases, churn, engagement) — the high-value end of the value–action gap.
@@ -314,4 +314,4 @@ not part of the Part I results above.
 | The preregistered experiment record, stage by stage | [`experiments/README.md`](experiments/README.md) |
 | The code architecture and how to run things | [`../README.md`](../README.md) and [`../CLAUDE.md`](../CLAUDE.md) |
 | The literature this builds on | [`literature_review/`](literature_review/) |
-| The commercial feedback-loop design | [`part-ii-feedback-architecture.md`](part-ii-feedback-architecture.md) |
+| The commercial feedback-loop design | [`part-ii-feedback-architecture.md`](presentation/part-ii-feedback-architecture.md) |

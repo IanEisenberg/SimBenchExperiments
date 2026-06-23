@@ -1,8 +1,8 @@
-# Presentation — Part I
+# Presentation
 
-Artifacts for the Part I research-candidate talk (**~45 min**, inside a 60-min session; Part II ships as a separate deck). Spine = *disciplined empirical discovery* — a method for finding methods that doesn't fool itself.
+Talk artifacts for the research-candidate session. **Part I** (**~45 min**, inside a 60-min session) — spine = *disciplined empirical discovery*, a method for finding methods that doesn't fool itself. **Part II** — the forward-looking design that takes the same discipline from benchmark to commercial feedback loop.
 
-## Artifacts
+## Part I artifacts
 
 | File | What it is |
 |---|---|
@@ -10,6 +10,13 @@ Artifacts for the Part I research-candidate talk (**~45 min**, inside a 60-min s
 | `part-i-deck.html` | The **generated deck** — self-contained, opens in any browser, no runtime. 18 slides on a vanilla-JS 1920×1080 viewer with the data figures inlined as SVG. |
 | `assets/*.svg` | The **13 data figures** — deck-styled (IBM Plex, palette, labeled axes + bootstrap CIs), regenerated from run data; inlined into the deck. |
 | `part-i-deck.dc.html` | The **original 10-slide Claude Design render** (superseded by the generated 18-slide deck; kept for reference). |
+
+## Part II artifacts
+
+| File | What it is |
+|---|---|
+| `part-ii-presentation.html` | The **Part II deck** — a self-contained 4-page presentation (cover → animated system flow → full architecture with clickable node detail → deployment building blocks). Tab bar + ←/→ navigation; opens in any browser, no runtime. |
+| `part-ii-feedback-architecture.md` | The **design document** — how the methodology extends from static survey distributions to a multi-tenant commercial system predicting individual behavioral outcomes (stamped predictions, gated updates, abstention, compounding memory). Source of truth behind the deck. |
 
 ## Build pipeline
 

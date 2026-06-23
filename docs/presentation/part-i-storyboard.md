@@ -221,7 +221,7 @@ This spec supersedes the earlier 10-slide cut (kept in git history). Every data-
 - **Key:** The live frontier — each item a response to a failure we showed; the discipline is the transferable asset.
 - **Content:** **Extensions** — *Agentic tool-use* (`WebAgentPredictor`: leakage-guarded, must beat a closed-book twin **and** the champion) → answers *no real-world signal*. *Multi-agent critique / debate* (surface minority mass, catch over-concentration) → answers *the persistent spread failure*. *More expressive multi-step prompting* — honestly flagged: our naive CoT **lost**, so promising-but-unproven → callback to the graveyard. *Fuller, principled model sweep* → callback to model-vs-method. **Close:** beat the baseline on a sealed test, reproduced the paper, demoted the wins that didn't transfer — the apparatus generalizes to any LLM-eval problem. → *Part II takes it from benchmark to commercial feedback loop.*
 - **Visual:** native — compact extensions register (each tagged with the failure it answers) + the morph motif resolved (prediction overlaid on truth) with the one-line thesis.
-- **Source:** Stages 13 / 16 / 18; bean `Scrye_Project-60fk`; `docs/part-ii-feedback-architecture.md`.
+- **Source:** Stages 13 / 16 / 18; bean `Scrye_Project-60fk`; `docs/presentation/part-ii-feedback-architecture.md`.
 
 ---
 
