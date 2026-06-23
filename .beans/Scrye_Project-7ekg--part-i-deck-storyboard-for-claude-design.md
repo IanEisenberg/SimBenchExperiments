@@ -5,7 +5,7 @@ status: completed
 type: task
 priority: normal
 created_at: 2026-06-23T00:30:41Z
-updated_at: 2026-06-23T00:35:08Z
+updated_at: 2026-06-23T01:27:47Z
 ---
 
 Slide-by-slide storyboard (medium detail + visual intent, source pointers) for the Part I research-candidate presentation, to hand to Claude Design. Part I only; spine = disciplined discovery.
@@ -19,3 +19,6 @@ Wrote docs/presentation/part-i-storyboard.md — slide-by-slide storyboard for t
 - Covers assignment-required elements: SimBench score, counterfactual sensitivity (cf_alignment, honestly framed as a weak-but-gated metric), ablations (lever scoreboard + graveyard), required-question predictions, limitations/risks/extensions.
 - Two VERIFY tags flagged: reconcile 40.73 (router) vs 40.93 (cc+abstain) headline; pull the three required-Q predicted distributions from the final-test run before rendering.
 - Committed on worktree branch worktree-part-i-deck-storyboard (not merged to main).
+
+## Update — condensed to 10 slides (2026-06-22)
+Per user (one-hour session for everything), recut the storyboard to a 10-slide main flow + 7-item Backup section for Q&A. Same spine/sources/VERIFY tags. The 10 still cover all assignment-required elements (metric, ablations scoreboard, counterfactual sensitivity, required-question predictions, limitations).
