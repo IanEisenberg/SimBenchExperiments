@@ -7,10 +7,13 @@ One row per SimBench question (pop + grouped, all dev/val/test buckets) with:
   * queryable metadata (dataset, task_kind, splits, segment, required-Q, ...)
 
 Predictions are regenerated entirely FROM CACHE (network disabled: a miss raises),
-so this costs nothing and is deterministic. anti_flattening and simbench_faithful
-are 100%% cache-covered across all buckets; the final task-kind router is only
-partially cached, so "our system" here is anti_flattening (S~=40.8, on par with the
-router's held-out TEST S=40.7) -- our best system with full per-question coverage.
+so this costs nothing and is deterministic. "Our system" is the shipped headline
+method: calibrated_commitment + AbstainCalibrator (cc+abstain), our val-confirmed,
+test-sealed best (TEST overall S=40.93; Stage 17). calibrated_commitment is 100%%
+cache-covered across all buckets, so the full-split per-question CSV reproduces it
+exactly from cache. The abstain-set is fit on full DEV (per Stage 12): every
+dataset where cc scores below uniform on dev gets a uniform fallback -- here
+{Choices13k, MoralMachine, OSPsychMACH}. simbench_faithful is the paper baseline.
 """
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from scrye.calibrate import AbstainCalibrator
 from scrye.config import REQUIRED_QUESTIONS
 from scrye.data import load_all
 from scrye.evaluate import build_normalizers
@@ -31,7 +35,8 @@ from scrye.scoring import response_entropy, simbench_score, tvd_to_uniform
 from scrye.splits import make_split
 
 MODEL = "gemini-3.1-flash-lite"
-OUR_STRATEGY = "anti_flattening"      # our headline full-coverage system
+OUR_STRATEGY = "calibrated_commitment"        # shipped headline prompt
+OUR_SYSTEM = "calibrated_commitment+abstain"  # cc + AbstainCalibrator (fit on dev)
 OUT = Path("/Users/ian/Projects/Scrye_Project/outputs/simbench_question_predictions.csv")
 
 # Task kind per source dataset. SimBench's group_prompt holds the persona ("You are
@@ -97,7 +102,17 @@ def main() -> None:
     normalizers = build_normalizers(split.dev + split.val + split.test)
 
     client = cache_only(make_client(MODEL, max_retries=10, timeout=90))
-    our_pipe = Pipeline(ZeroShotPredictor(client, strategy=get_strategy(OUR_STRATEGY)))
+    cc_pred = ZeroShotPredictor(client, strategy=get_strategy(OUR_STRATEGY))
+
+    # Fit the abstain-set on full-DEV calibrated_commitment predictions (Stage 12):
+    # flag every dataset where cc scores below uniform on dev -> uniform fallback.
+    # Uses dataset identity only (never truth at inference), and fits on dev alone,
+    # so val/test rows below are scored by a system selected without their contact.
+    cc_dev = [cc_pred.predict(rec) for rec in split.dev]
+    abstain = AbstainCalibrator().fit(split.dev, cc_dev)
+    print(f"abstain-set (fit on dev): {sorted(abstain.datasets_)}")
+
+    our_pipe = Pipeline(cc_pred, abstain)
     faithful_pipe = Pipeline(ZeroShotPredictor(client, strategy=get_strategy("simbench_faithful")))
 
     cols = [
@@ -141,7 +156,7 @@ def main() -> None:
                 "tvd_to_uniform": round(tvd_to_uniform(truth), 6),
                 "normalizer_Z": round(z, 6) if z else "",
                 "uniform_score": round(simbench_score(uni, truth, options=options, normalizer=z), 4),
-                "our_system": OUR_STRATEGY,
+                "our_system": OUR_SYSTEM,
                 "our_pred": _dist_json(our_pred),
                 "our_score": round(simbench_score(our_pred, truth, options=options, normalizer=z), 4),
                 "faithful_pred": _dist_json(faithful_pred),
