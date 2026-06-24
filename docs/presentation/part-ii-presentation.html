@@ -90,13 +90,13 @@ body {
 
 /* ── Cover page ── */
 #page-0 {
-  padding: 32px 36px 28px;
+  padding: 28px 36px 24px;
   overflow-y: auto;
 }
 .cover {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 36px;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
@@ -118,9 +118,10 @@ body {
   font-size: 0.78rem;
   color: #6e7681;
   margin-top: 6px;
+  line-height: 1.5;
 }
 .cover-section {
-  margin-top: 24px;
+  margin-top: 22px;
 }
 .cover-section-label {
   font-size: 0.65rem;
@@ -132,29 +133,65 @@ body {
   padding-bottom: 6px;
   border-bottom: 1px solid #21262d;
 }
-.bet-card {
+
+/* ── Overview core-loop mini diagram ── */
+.loop { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.loop-node {
+  width: 100%;
+  text-align: center;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e6edf3;
+}
+.loop-node span { display: block; font-size: 0.68rem; font-weight: 400; color: #8b949e; margin-top: 2px; }
+.loop-arrow { font-size: 0.72rem; color: #6e7681; line-height: 1; }
+.loop-branches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.loop-node.fnd { border-color: #80DEEA; border-left-width: 3px; }
+.loop-node.mth { border-color: #FFD54F; border-left-width: 3px; }
+.loop-node.rec { border-color: #CE93D8; }
+.loop-node.src { border-color: #4FC3F7; }
+.loop-node.pred { border-color: #81C784; }
+.loop-exp {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: #f0a8c0;
+  background: #1d1419;
+  border: 1px dashed #F48FB1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+  line-height: 1.45;
+}
+.loop-exp strong { color: #F48FB1; }
+
+.sys-card {
   display: flex;
   gap: 12px;
   padding: 12px 14px;
   border-left: 3px solid #30363d;
   background: #161b22;
-  border-radius: 0 6px 6px 0;
-  margin-bottom: 8px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 9px;
 }
-.bet-num {
-  font-size: 1.1rem;
+.sys-num {
+  font-size: 1.2rem;
   font-weight: 700;
   color: #6e7681;
   min-width: 18px;
   margin-top: 1px;
 }
-.bet-card strong {
+.sys-card strong {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: #e6edf3;
   margin-bottom: 4px;
 }
-.bet-card p {
+.sys-card p {
   font-size: 0.75rem;
   color: #8b949e;
   line-height: 1.5;
@@ -168,34 +205,29 @@ body {
   background: #161b22;
   border: 1px solid #21262d;
   border-radius: 8px;
-  padding: 12px 14px;
-}
-.area-icon {
-  font-size: 1rem;
-  color: #8b949e;
-  margin-bottom: 4px;
+  padding: 11px 13px;
 }
 .area-card strong {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: #e6edf3;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .area-card p {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: #8b949e;
   line-height: 1.45;
 }
 .stats-row {
   display: flex;
-  gap: 16px;
-  margin: 10px 0;
+  gap: 14px;
+  margin: 8px 0;
 }
 .stat {
   background: #161b22;
   border: 1px solid #21262d;
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 10px 14px;
   text-align: center;
   flex: 1;
 }
@@ -206,7 +238,7 @@ body {
   letter-spacing: -0.02em;
 }
 .stat-label {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   color: #8b949e;
   margin-top: 2px;
 }
@@ -234,28 +266,70 @@ body {
   padding: 16px 20px;
   position: relative;
 }
-.svg-wrap svg { width: 100%; display: block; }
+.svg-wrap svg { width: 100%; display: block; margin: 0 auto; }
+/* Fit each diagram within the viewport (preserve aspect, leave a gutter for the legend) */
+#svg-simple { max-width: 700px; }
+#svg-detail { max-width: 1040px; }
+#svg-deploy { max-width: 1040px; }
 
 /* ── Shared SVG styles ── */
 .node rect { rx: 8; ry: 8; stroke-width: 1.5; cursor: pointer; transition: filter 0.15s; }
 .node:hover rect { filter: brightness(1.25); }
 .node text { fill: #e6edf3; font-size: 12px; font-weight: 500; pointer-events: none; dominant-baseline: middle; text-anchor: middle; }
 .node .sub { font-size: 9.5px; fill: #8b949e; font-weight: 400; }
+.region-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .section-label { fill: #30363d; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .section-bg { fill: #161b22; rx: 6; ry: 6; }
-.edge { fill: none; stroke-width: 1.5; opacity: 0.55; }
+.edge { fill: none; stroke-width: 1.4; opacity: 0.4; }
+/* Secondary "control / feedback" edges recede behind the primary left-to-right flow */
+.edge.ctrl { stroke-width: 1; opacity: 0.2; }
 
-/* Simple diagram swim lanes */
-.swim-bg { fill: #161b22; }
+/* Swim lanes / flow */
 .swim-label { fill: #30363d; font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+.flow-label { fill: #8b949e; font-size: 9.5px; font-weight: 500; }
 
 /* Deployment box styles */
-.box rect { rx: 6; ry: 6; stroke-width: 1.5; }
+.box rect { rx: 6; ry: 6; stroke-width: 1.5; cursor: pointer; transition: filter 0.15s; }
+.box:hover rect { filter: brightness(1.2); }
 .box text { fill: #e6edf3; font-size: 11.5px; font-weight: 600; dominant-baseline: middle; text-anchor: middle; pointer-events: none; }
 .box .stack { font-size: 9.5px; fill: #8b949e; font-weight: 400; }
 .row-label { fill: #30363d; font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
 .row-bg { fill: #161b22; }
+.panel-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
 .edge-label { fill: #8b949e; font-size: 9px; }
+
+/* ── Deployment decisions band (page 3) ── */
+.deploy-decisions {
+  display: flex; gap: 10px;
+  padding: 10px 24px 0;
+  flex-shrink: 0;
+}
+.dd-card {
+  flex: 1; min-width: 0;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-left: 3px solid #30363d;
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+}
+.dd-h {
+  font-size: 0.74rem; font-weight: 700; color: #e6edf3;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.dd-tag {
+  font-size: 0.54rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 10px; white-space: nowrap;
+}
+.dd-card p { font-size: 0.68rem; color: #8b949e; line-height: 1.45; margin-top: 5px; }
+.dd-card strong { color: #c9d1d9; font-weight: 600; }
+.dd-card em { color: #c9d1d9; font-style: normal; font-weight: 500; }
+.deploy-open {
+  margin: 7px 24px 0;
+  font-size: 0.66rem; color: #8b949e; line-height: 1.4;
+  border-left: 2px solid #F48FB144; padding: 2px 0 2px 10px;
+}
+.deploy-open strong { color: #F48FB1; font-weight: 700; }
+.deploy-open em { color: #c9d1d9; font-style: italic; }
 
 /* ── Legend ── */
 .legend {
@@ -320,31 +394,23 @@ body {
     <div class="cover-title">
       <h1>Scrye</h1>
       <h2>Part II — Feedback Mechanism Architecture</h2>
-      <p class="cover-sub">Commercial behavioral simulation · closed-loop system for continuously improving predictions</p>
+      <p class="cover-sub">One normalization layer turns every input into canonical behavioral records — then those records feed two separate, independently-improving systems.</p>
     </div>
 
     <div class="cover-section">
-      <div class="cover-section-label">Three Structural Bets</div>
-      <div class="bet-card" style="border-color:#FFD54F">
-        <div class="bet-num">1</div>
-        <div>
-          <strong>Task/Environment Enrichment — not routing dispatch</strong>
-          <p>Part I's gain came from richer environmental framing, not the classifier machinery. Every prediction receives rich decision-environment description; the model conditions on context universally. Abstain-on-uncertainty is a separate coverage policy. The enrichment configuration is a learned, gated artifact.</p>
+      <div class="cover-section-label">The Core Loop</div>
+      <div class="loop">
+        <div class="loop-node src">Data Sources<span>revealed behavior · stated preferences · experimental</span></div>
+        <div class="loop-arrow">&#8595; normalize</div>
+        <div class="loop-node rec">Canonical Behavioral Records<span>{ agent · context · choice · provenance · weight }</span></div>
+        <div class="loop-arrow">&#8595;&nbsp;&nbsp;the records feed both&nbsp;&nbsp;&#8595;</div>
+        <div class="loop-branches">
+          <div class="loop-node fnd">&#9312; Foundation Model<span>Centaur · improves via weights</span></div>
+          <div class="loop-node mth">&#9313; Method Optimization<span>prompts · improves via gated config</span></div>
         </div>
-      </div>
-      <div class="bet-card" style="border-color:#CE93D8">
-        <div class="bet-num">2</div>
-        <div>
-          <strong>Data Normalization Layer &#8594; canonical behavioral records</strong>
-          <p>All inputs — surveys, transactions, experimental outcomes — normalized into single-choice behavioral records before entering the stack. The survey-to-behavioral bridge (sampling from population distributions, r ≈ 0.4–0.6) is one path. Enables Centaur training on heterogeneous sources from day one.</p>
-        </div>
-      </div>
-      <div class="bet-card" style="border-color:#80DEEA">
-        <div class="bet-num">3</div>
-        <div>
-          <strong>Centaur + task/environment encoding — primary experimental lever</strong>
-          <p>Foundation model fine-tuned on behavioral outcome data (Binz et al. 2024 approach) with the hypothesis that task/environment-enriched inputs further improve predictions. Cross-domain transfer to e-commerce is empirical — tested, not assumed.</p>
-        </div>
+        <div class="loop-arrow">&#8595;&nbsp;&nbsp;both produce&nbsp;&nbsp;&#8595;</div>
+        <div class="loop-node pred">Predictions &#8594; Outcomes &#8635; <span>outcomes return as new records (closes the loop)</span></div>
+        <div class="loop-exp"><strong>Experimental enrichment axis</strong> — task decomposition + contextualization — is a candidate enrichment for <strong>both</strong> branches.</div>
       </div>
     </div>
 
@@ -353,58 +419,60 @@ body {
       <div class="stats-row">
         <div class="stat"><div class="stat-val">55.57</div><div class="stat-label">grouped score</div></div>
         <div class="stat"><div class="stat-val">+1.89</div><div class="stat-label">over champion</div></div>
-        <div class="stat"><div class="stat-val">+5.53</div><div class="stat-label">knowledge (task_context)</div></div>
+        <div class="stat"><div class="stat-val">+5.53</div><div class="stat-label">knowledge (enriched)</div></div>
       </div>
-      <p class="cover-note">Key lesson: task_context enrichment transferred cleanly to val. Routing-as-dispatch overfit dev (voting on risky_choice: −14.12 on val). Universal enrichment is the durable principle; routing machinery is not.</p>
+      <p class="cover-note">The durable lever from Part I was <strong>richer environmental framing</strong> of each prediction (task context, sibling items) — task_context transferred cleanly to val (+5.53 on knowledge). That same enrichment principle is the experimental axis here, applied to both branches.</p>
     </div>
   </div>
 
   <div class="cover-right">
     <div class="cover-section" style="margin-top:0">
-      <div class="cover-section-label">Five Required Areas</div>
-      <div class="area-grid">
-        <div class="area-card">
-          <div class="area-icon">&#9312;</div>
-          <strong>Compounding Memory</strong>
-          <p>L1 raw store (append-only) &#8594; L2 prediction ledger (stamped before outcomes) &#8594; L3 segment posteriors (EMA-weighted) &#8594; L4 calibrator cache (versioned, gated)</p>
+      <div class="cover-section-label">Two Improvement Systems</div>
+      <div class="sys-card" style="border-color:#80DEEA">
+        <div class="sys-num">&#9312;</div>
+        <div>
+          <strong>Foundation Model — a better model (Centaur)</strong>
+          <p>A foundation model fine-tuned on the canonical behavioral records (Binz et al. 2024). Improvement is encoded in <em>weights</em>, learned from outcome data and shared cross-tenant. This is the model getting smarter about human behavior.</p>
         </div>
-        <div class="area-card">
-          <div class="area-icon">&#9313;</div>
-          <strong>Method Spectrum</strong>
-          <p>Cold (n&lt;100, ICL/RAG from L3) &#8594; Warm (n&#8805;100, calibrated + Centaur) &#8594; Hot (n&#8805;10k, Centaur + LoRA adapter) · gated volume-based escalation</p>
+      </div>
+      <div class="sys-card" style="border-color:#FFD54F">
+        <div class="sys-num">&#9313;</div>
+        <div>
+          <strong>Method Optimization Loop — a better method (prompts)</strong>
+          <p>A separate, data-driven search over how we <em>use</em> the model — prompting is the first example. Propose a config &#8594; score on held-out ledger data &#8594; Ladder-gate &#8594; accept. Improvement is a <em>gated config artifact</em>, per-tenant. Same discipline as Part I's search loop — independent of the foundation model.</p>
         </div>
-        <div class="area-card">
-          <div class="area-icon">&#9314;</div>
-          <strong>Signal Types</strong>
-          <p>Revealed behavior &#8594; calibration labels only · Stated preferences &#8594; cold-start prior only · Synthetic bridge &#8594; Centaur bootstrap only · boundaries are load-bearing</p>
-        </div>
-        <div class="area-card">
-          <div class="area-icon">&#9315;</div>
-          <strong>Generalization</strong>
-          <p>Centaur weights shared cross-tenant · per-tenant L1–L4 data isolated · method validation compounds across engagements · raw data never pooled</p>
-        </div>
-        <div class="area-card" style="grid-column: 1 / -1">
-          <div class="area-icon">&#9316;</div>
-          <strong>Guardrails &amp; Evaluation</strong>
-          <p>5-step update gate: shadow eval (&#8805;1k preds) &#8594; Blum-Hardt &#951; lift test &#8594; reliability ceiling (finite-n hard cap) &#8594; PSI drift check &#8594; human sign-off for fine-tune ships · auto-rollback on TVD +2&#963; · 30-day version retention</p>
+      </div>
+      <div class="sys-card" style="border-color:#F48FB1">
+        <div class="sys-num">&#8226;</div>
+        <div>
+          <strong>Experimental Enrichment Axis (cross-cutting)</strong>
+          <p>Task decomposition + contextualization, brought into the prompting <em>and/or</em> the Centaur inputs as a possible enrichment. A distinct experimental direction — tested, not assumed — that can lift either branch.</p>
         </div>
       </div>
     </div>
 
     <div class="cover-section">
-      <div class="cover-section-label">Architecture Pages</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px">
-        <div class="area-card" style="cursor:pointer" onclick="showPage(1)">
-          <strong style="color:#4FC3F7">&#8594; System Flow</strong>
-          <p>Clean 3-column animated overview: Data In · Compounding Memory · Predictions</p>
+      <div class="cover-section-label">Required Coverage</div>
+      <div class="area-grid">
+        <div class="area-card">
+          <strong>Compounding Memory</strong>
+          <p>L1 raw store &#8594; L2 prediction ledger (stamped) &#8594; L3 segment posteriors (EMA) &#8594; L4 config / adapter cache (versioned)</p>
         </div>
-        <div class="area-card" style="cursor:pointer" onclick="showPage(2)">
-          <strong style="color:#FFD54F">&#8594; Full Architecture</strong>
-          <p>Detailed animated diagram with clickable nodes and in/out/rationale detail panel</p>
+        <div class="area-card">
+          <strong>Method Spectrum</strong>
+          <p>Cold (n&lt;100, ICL/RAG) &#8594; Warm (n&#8805;100, calibrated) &#8594; Hot (n&#8805;10k, Centaur + LoRA) · volume-based</p>
         </div>
-        <div class="area-card" style="cursor:pointer; grid-column: 1 / -1" onclick="showPage(3)">
-          <strong style="color:#81C784">&#8594; Deployment Building Blocks</strong>
-          <p>Infrastructure layers: Client Sources · Ingestion · Storage (L1–L4) · Model Layer (OpenRouter/vLLM + Centaur GPU) · Evaluation Gate · Serving + Monitoring</p>
+        <div class="area-card">
+          <strong>Signal Types</strong>
+          <p>Revealed &#8594; calibration labels · Stated &#8594; cold-start prior · Synthetic bridge &#8594; Centaur bootstrap · boundaries are load-bearing</p>
+        </div>
+        <div class="area-card">
+          <strong>Generalization</strong>
+          <p>Centaur weights shared cross-tenant · per-tenant L1&#8211;L4 isolated · raw data never pooled · method validation compounds</p>
+        </div>
+        <div class="area-card" style="grid-column: 1 / -1">
+          <strong>Guardrails &amp; Evaluation</strong>
+          <p>5-step update gate: shadow eval (&#8805;1k preds) &#8594; Blum-Hardt &#951; lift test &#8594; reliability ceiling (finite-n cap) &#8594; PSI drift check &#8594; human sign-off for fine-tune ships · auto-rollback on TVD +2&#963; · 30-day version retention</p>
         </div>
       </div>
     </div>
@@ -414,86 +482,69 @@ body {
 </div>
 
 <!-- ══════════════════════════════════════════
-     PAGE 1 — SYSTEM FLOW (simple 3-column)
+     PAGE 1 — SYSTEM FLOW (simple vertical fork)
 ══════════════════════════════════════════════ -->
 <div class="page" id="page-1">
 <div class="diagram-hdr">
-  <h2>System Flow — Three-Stage Closed Loop</h2>
-  <p>Data In &#8594; Compounding Memory &#8594; Predictions · animated signal flows · swim-lane view</p>
+  <h2>System Flow — One Normalization Layer, Two Improving Systems</h2>
+  <p>Sources &#8594; normalization &#8594; the records fork into a Foundation Model and a Method Optimization Loop &#8594; predictions &#8594; outcomes feed back</p>
 </div>
 <div class="svg-wrap" style="position:relative">
-<svg id="svg-simple" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg">
+<svg id="svg-simple" viewBox="0 0 820 660" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <marker id="s-arr-beh"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FF8A65"/></marker>
-    <marker id="s-arr-sur"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
-    <marker id="s-arr-syn"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
+    <marker id="s-arr-src"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
+    <marker id="s-arr-rec"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
     <marker id="s-arr-pred" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
     <marker id="s-arr-fb"   markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#EF9A9A"/></marker>
-    <marker id="s-arr-cen"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#80DEEA"/></marker>
-    <marker id="s-arr-gate" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
+    <marker id="s-arr-exp"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#F48FB1"/></marker>
   </defs>
-  <!-- Swim lane backgrounds -->
-  <rect class="swim-bg" x="10"  y="10" width="240" height="565" rx="6"/>
-  <rect class="swim-bg" x="262" y="10" width="280" height="565" rx="6"/>
-  <rect class="swim-bg" x="554" y="10" width="390" height="565" rx="6"/>
-  <text class="swim-label" x="130" y="34">Data In</text>
-  <text class="swim-label" x="402" y="34">Compounding Memory</text>
-  <text class="swim-label" x="749" y="34">Predictions</text>
-  <!-- Col 1 nodes -->
-  <g class="node"><rect x="24" y="60" width="212" height="56" fill="#1a2332" stroke="#FF8A65"/><text x="130" y="82">Revealed Behavior</text><text class="sub" x="130" y="98">Transaction logs · individual events</text></g>
-  <g class="node"><rect x="24" y="168" width="212" height="56" fill="#1a2432" stroke="#4FC3F7"/><text x="130" y="190">Stated Preferences</text><text class="sub" x="130" y="206">Survey waves · population dists</text></g>
-  <g class="node"><rect x="24" y="288" width="212" height="72" fill="#1e1a2e" stroke="#CE93D8"/><text x="130" y="312">Data Normalization</text><text x="130" y="328">Layer</text><text class="sub" x="130" y="346">canonical behavioral records</text></g>
-  <g class="node"><rect x="24" y="470" width="212" height="72" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/><text x="130" y="495">Centaur Foundation</text><text class="sub" x="130" y="511">Shared across tenants</text><text class="sub" x="130" y="526">via weights · not data</text></g>
-  <text x="130" y="458" text-anchor="middle" font-size="9" fill="#80DEEA" opacity="0.7">SHARED BEHAVIORAL PRIOR</text>
-  <!-- Col 2 nodes -->
-  <g class="node"><rect x="276" y="60" width="252" height="56" fill="#1a2520" stroke="#81C784"/><text x="402" y="80">L1 · Raw Outcome Store</text><text class="sub" x="402" y="97">Append-only · all provenance types</text></g>
-  <g class="node"><rect x="276" y="176" width="252" height="56" fill="#1f1a1a" stroke="#EF9A9A"/><text x="402" y="196">L2 · Prediction Ledger</text><text class="sub" x="402" y="213">Stamped before outcomes arrive</text></g>
-  <g class="node"><rect x="276" y="292" width="252" height="56" fill="#1a2020" stroke="#80DEEA"/><text x="402" y="312">L3 · Segment Posteriors</text><text class="sub" x="402" y="329">EMA-weighted · calibration residuals</text></g>
-  <g class="node"><rect x="276" y="408" width="252" height="56" fill="#211f1a" stroke="#FFD54F"/><text x="402" y="428">L4 · Calibrator Cache</text><text class="sub" x="402" y="445">Route params · LoRA adapters (gated)</text></g>
-  <!-- Col 3 nodes -->
-  <g class="node"><rect x="568" y="60" width="362" height="72" fill="#1e1e1a" stroke="#FFD54F"/><text x="749" y="84">Task / Environment Enrichment</text><text class="sub" x="749" y="101">context · task structure · L3 behavioral priors (k-NN)</text><text class="sub" x="749" y="116">versioned · gated · empirically discovered</text></g>
-  <g class="node"><rect x="568" y="186" width="362" height="52" fill="#1a1a1a" stroke="#555"/><text x="749" y="206">Coverage Policy</text><text class="sub" x="749" y="223">risky choice / moral dilemma &#8594; abstain (return uniform)</text></g>
-  <g class="node"><rect x="568" y="296" width="108" height="68" fill="#1a2020" stroke="#80DEEA"/><text x="622" y="320">Cold</text><text class="sub" x="622" y="336">n &lt; 100</text><text class="sub" x="622" y="350">ICL / RAG</text></g>
-  <g class="node"><rect x="688" y="296" width="108" height="68" fill="#211f1a" stroke="#FFD54F"/><text x="742" y="320">Warm</text><text class="sub" x="742" y="336">n &#8805; 100</text><text class="sub" x="742" y="350">Calibrated</text></g>
-  <g class="node"><rect x="812" y="296" width="108" height="68" fill="#200e0e" stroke="#EF9A9A"/><text x="866" y="320">Hot</text><text class="sub" x="866" y="336">n &#8805; 10k</text><text class="sub" x="866" y="350">Centaur+LoRA</text></g>
-  <g class="node"><rect x="638" y="424" width="222" height="52" fill="#152015" stroke="#81C784" stroke-width="2"/><text x="749" y="444">Predicted Distribution</text><text class="sub" x="749" y="461">stamps L2 Ledger</text></g>
-  <g class="node"><rect x="638" y="500" width="222" height="60" fill="#221a0a" stroke="#FFD54F" stroke-width="1.5"/><text x="749" y="520">Update Gate</text><text class="sub" x="749" y="537">shadow &#8594; lift test &#8594; ceiling &#8594; PSI &#8594; sign-off</text></g>
+
+  <!-- Branch region tints -->
+  <rect x="56" y="288" width="248" height="120" rx="10" fill="#0d1a20" stroke="#80DEEA" stroke-opacity="0.25"/>
+  <rect x="516" y="288" width="248" height="120" rx="10" fill="#1c1a10" stroke="#FFD54F" stroke-opacity="0.25"/>
+  <text class="region-label" x="180" y="430" text-anchor="middle" fill="#80DEEA" opacity="0.85">&#9312; Foundation Model</text>
+  <text class="region-label" x="640" y="430" text-anchor="middle" fill="#FFD54F" opacity="0.85">&#9313; Method Optimization Loop</text>
+
+  <!-- Spine nodes -->
+  <g class="node"><rect x="290" y="24" width="240" height="56" fill="#1a2432" stroke="#4FC3F7"/><text x="410" y="46">Data Sources</text><text class="sub" x="410" y="63">revealed · stated · experimental</text></g>
+  <g class="node"><rect x="290" y="120" width="240" height="56" fill="#1e1a2e" stroke="#CE93D8" stroke-width="2"/><text x="410" y="142">Normalization Layer</text><text class="sub" x="410" y="159">deconfound · sample · weight</text></g>
+  <g class="node"><rect x="305" y="212" width="210" height="46" fill="#1a1722" stroke="#CE93D8"/><text x="410" y="230" font-size="11">Canonical Behavioral Records</text><text class="sub" x="410" y="246">one format for everything downstream</text></g>
+
+  <!-- Branches -->
+  <g class="node"><rect x="70" y="300" width="220" height="96" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/><text x="180" y="322">Foundation Model</text><text class="sub" x="180" y="340">Centaur, fine-tuned on records</text><text class="sub" x="180" y="356">learns human-behavior structure</text><text class="sub" x="180" y="378" fill="#80DEEA">&#8594; better weights · cross-tenant</text></g>
+  <g class="node"><rect x="530" y="300" width="220" height="96" fill="#211f10" stroke="#FFD54F" stroke-width="2"/><text x="640" y="322">Method Optimization Loop</text><text class="sub" x="640" y="340">propose &#8594; score on held-out &#8594; gate</text><text class="sub" x="640" y="356">prompts are the first example</text><text class="sub" x="640" y="378" fill="#FFD54F">&#8594; better config · per-tenant</text></g>
+
+  <!-- Enrichment axis (between branches) -->
+  <g class="node"><rect x="320" y="312" width="180" height="72" fill="#1d1419" stroke="#F48FB1" stroke-dasharray="5,3"/><text x="410" y="332" font-size="10.5" fill="#F48FB1">Experimental Enrichment</text><text class="sub" x="410" y="349">task decomposition</text><text class="sub" x="410" y="363">+ contextualization</text><text class="sub" x="410" y="378" fill="#F48FB1">feeds both branches</text></g>
+
+  <!-- Rejoin -->
+  <g class="node"><rect x="305" y="440" width="210" height="52" fill="#152015" stroke="#81C784" stroke-width="2"/><text x="410" y="460">Predicted Distribution</text><text class="sub" x="410" y="477">stamped to ledger before outcomes</text></g>
+  <g class="node"><rect x="305" y="528" width="210" height="46" fill="#1f1a1a" stroke="#EF9A9A"/><text x="410" y="546">Outcomes Arrive</text><text class="sub" x="410" y="563">linked back as new records</text></g>
+
   <!-- Edges -->
-  <path class="edge" stroke="#FF8A65" marker-end="url(#s-arr-beh)"  d="M236,88 H276"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#s-arr-sur)"  d="M236,196 C254,196 264,96 276,96"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#s-arr-sur)"  d="M130,224 V288"/>
-  <path class="edge" stroke="#CE93D8" marker-end="url(#s-arr-syn)"  d="M236,324 C258,324 268,114 276,114"/>
-  <path class="edge" stroke="#CE93D8" marker-end="url(#s-arr-syn)"  d="M130,360 V470"/>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#s-arr-fb)"   d="M402,116 V176"/>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#s-arr-fb)"   d="M402,232 V292"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#s-arr-gate)" d="M402,348 V408"/>
-  <path class="edge" stroke="#80DEEA" stroke-dasharray="5,3" marker-end="url(#s-arr-cen)"  d="M528,310 C548,310 558,96 568,96"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#s-arr-gate)" d="M528,436 C548,436 672,394 688,380"/>
-  <path class="edge" stroke="#4FC3F7" stroke-dasharray="4,3" marker-end="url(#s-arr-sur)"  d="M528,88 H568"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#s-arr-gate)" d="M749,132 V186"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#s-arr-gate)" d="M700,238 C680,256 622,276 622,296"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#s-arr-gate)" d="M749,238 V296"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#s-arr-gate)" d="M800,238 C820,256 866,276 866,296"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#s-arr-pred)" d="M622,364 C640,400 700,424 700,424"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#s-arr-pred)" d="M742,364 V424"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#s-arr-pred)" d="M866,364 C860,400 800,424 800,424"/>
-  <path class="edge" stroke="#EF9A9A" stroke-dasharray="5,3" marker-end="url(#s-arr-fb)" d="M638,450 C600,450 560,440 528,320"/>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#s-arr-fb)"   d="M749,476 V500"/>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#s-arr-gate)" d="M638,530 C580,530 528,490 528,464"/>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#s-arr-gate)" d="M638,520 C520,560 300,560 236,540"/>
-  <path class="edge" stroke="#80DEEA" marker-end="url(#s-arr-cen)"  d="M236,506 C380,530 750,490 812,364"/>
-  <path class="edge" stroke="#80DEEA" marker-end="url(#s-arr-cen)"  d="M236,490 C350,490 650,404 688,364"/>
+  <path class="edge" stroke="#4FC3F7" marker-end="url(#s-arr-src)"  d="M410,80 V120"/>
+  <path class="edge" stroke="#CE93D8" marker-end="url(#s-arr-rec)"  d="M410,176 V212"/>
+  <path class="edge" stroke="#CE93D8" marker-end="url(#s-arr-rec)"  d="M410,258 C410,280 180,278 180,300"/>
+  <path class="edge" stroke="#CE93D8" marker-end="url(#s-arr-rec)"  d="M410,258 C410,280 640,278 640,300"/>
+  <path class="edge" stroke="#81C784" marker-end="url(#s-arr-pred)" d="M180,396 C180,420 410,418 410,440"/>
+  <path class="edge" stroke="#81C784" marker-end="url(#s-arr-pred)" d="M640,396 C640,420 410,418 410,440"/>
+  <path class="edge" stroke="#81C784" marker-end="url(#s-arr-pred)" d="M410,492 V528"/>
+  <path class="edge" stroke="#F48FB1" stroke-dasharray="5,3" marker-end="url(#s-arr-exp)" d="M320,348 H290"/>
+  <path class="edge" stroke="#F48FB1" stroke-dasharray="5,3" marker-end="url(#s-arr-exp)" d="M500,348 H530"/>
+  <path class="edge" stroke="#EF9A9A" stroke-dasharray="6,3" marker-end="url(#s-arr-fb)" d="M305,551 C140,560 44,520 44,330 C44,200 150,158 290,150"/>
+  <text class="flow-label" x="36" y="345" transform="rotate(-90 36,345)" text-anchor="middle">feedback loop · outcomes become records</text>
+
   <g id="pg-simple"></g>
 </svg>
 <div class="legend">
   <div class="legend-title">Signal</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Survey / stated</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#FF8A65"></div>Behavioral / revealed</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Synthetic / bridge</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Prediction output</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback / ledger</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Centaur</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Gate / calibration</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Data in</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Canonical records</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Foundation model</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Method optimization</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#F48FB1"></div>Experimental enrichment</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Predictions</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback</div>
 </div>
 </div>
 </div>
@@ -503,170 +554,223 @@ body {
 ══════════════════════════════════════════════ -->
 <div class="page" id="page-2">
 <div class="diagram-hdr">
-  <h2>Full Architecture — Data Flow</h2>
-  <p>Four-column layout · animated signal flows · click any node for in/out/rationale details</p>
+  <h2>Full Architecture — Same Flow, Internals Exposed</h2>
+  <p>Sources &#8594; normalization &#8594; shared memory (L1&#8211;L4) &#8594; the two branches &#8594; prediction spectrum &#8594; update gate · click any node for in/out/rationale</p>
 </div>
 <div class="svg-wrap" style="position:relative">
-<svg id="svg-detail" viewBox="0 0 1100 720" xmlns="http://www.w3.org/2000/svg">
+<svg id="svg-detail" viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <marker id="d-arrow"          markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#444c56"/></marker>
     <marker id="d-arr-survey"     markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
     <marker id="d-arr-behavioral" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FF8A65"/></marker>
-    <marker id="d-arr-synthetic"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
+    <marker id="d-arr-record"     markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
     <marker id="d-arr-prediction" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
     <marker id="d-arr-feedback"   markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#EF9A9A"/></marker>
     <marker id="d-arr-centaur"    markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#80DEEA"/></marker>
     <marker id="d-arr-gate"       markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
+    <marker id="d-arr-exp"        markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#F48FB1"/></marker>
   </defs>
-  <!-- Column backgrounds -->
-  <rect class="section-bg" x="14"  y="50" width="220" height="620"/>
-  <text class="section-label" x="124" y="76">Data Sources</text>
-  <rect class="section-bg" x="248" y="50" width="340" height="620"/>
-  <text class="section-label" x="418" y="76">Memory &amp; Foundation</text>
-  <rect class="section-bg" x="602" y="50" width="280" height="620"/>
-  <text class="section-label" x="742" y="76">Prediction Pipeline</text>
-  <rect class="section-bg" x="896" y="50" width="190" height="620"/>
-  <text class="section-label" x="991" y="76">Output &amp; Gate</text>
-  <!-- Col 1 nodes -->
+
+  <!-- Zone backgrounds -->
+  <rect class="section-bg" x="12"  y="44" width="210" height="596"/>
+  <text class="section-label" x="117" y="66">Data Sources</text>
+  <rect class="section-bg" x="234" y="44" width="224" height="596"/>
+  <text class="section-label" x="346" y="66">Shared Memory</text>
+  <rect x="470" y="44" width="394" height="250" rx="6" fill="#0d1a22" stroke="#80DEEA" stroke-opacity="0.22"/>
+  <text class="region-label" x="490" y="66" fill="#80DEEA">&#9312; Foundation Model</text>
+  <rect x="470" y="388" width="394" height="252" rx="6" fill="#1c1a10" stroke="#FFD54F" stroke-opacity="0.22"/>
+  <text class="region-label" x="490" y="410" fill="#FFD54F">&#9313; Method Optimization Loop</text>
+  <rect class="section-bg" x="876" y="44" width="292" height="596"/>
+  <text class="section-label" x="1022" y="66">Prediction &amp; Gate</text>
+
+  <!-- Col 1 — Data Sources -->
   <g class="node" data-id="revealed">
-    <rect x="28" y="100" width="192" height="60" fill="#1a2332" stroke="#FF8A65"/>
-    <text x="124" y="124">Revealed Behavior</text>
-    <text class="sub" x="124" y="141">Transaction logs · individual events</text>
+    <rect x="24" y="92" width="186" height="52" fill="#1a2332" stroke="#FF8A65"/>
+    <text x="117" y="112" font-size="11.5">Revealed Behavior</text>
+    <text class="sub" x="117" y="129">transaction logs · events</text>
   </g>
   <g class="node" data-id="surveys">
-    <rect x="28" y="220" width="192" height="60" fill="#1a2432" stroke="#4FC3F7"/>
-    <text x="124" y="244">Stated Preferences</text>
-    <text class="sub" x="124" y="261">Survey waves · population dists</text>
+    <rect x="24" y="156" width="186" height="52" fill="#1a2432" stroke="#4FC3F7"/>
+    <text x="117" y="176" font-size="11.5">Stated Preferences</text>
+    <text class="sub" x="117" y="193">survey waves · pop dists</text>
+  </g>
+  <g class="node" data-id="experimental">
+    <rect x="24" y="220" width="186" height="52" fill="#1a1e2e" stroke="#80DEEA"/>
+    <text x="117" y="240" font-size="11.5">Experimental Data</text>
+    <text class="sub" x="117" y="257">Psych-101 · SimBench</text>
   </g>
   <g class="node" data-id="external">
-    <rect x="28" y="340" width="192" height="60" fill="#1e1e2e" stroke="#555"/>
-    <text x="124" y="364">External Signals</text>
-    <text class="sub" x="124" y="381">Market context · seasonality</text>
+    <rect x="24" y="284" width="186" height="52" fill="#1e1e2e" stroke="#555"/>
+    <text x="117" y="304" font-size="11.5">External Signals</text>
+    <text class="sub" x="117" y="321">market · seasonality</text>
   </g>
-  <g class="node" data-id="bridge">
-    <rect x="28" y="470" width="192" height="72" fill="#1e1a2e" stroke="#CE93D8"/>
-    <text x="124" y="496">Data Normalization</text>
-    <text x="124" y="512">Layer</text>
-    <text class="sub" x="124" y="530">canonical behavioral records</text>
+  <g class="node" data-id="normalize">
+    <rect x="24" y="372" width="186" height="72" fill="#1e1a2e" stroke="#CE93D8" stroke-width="2"/>
+    <text x="117" y="394">Normalization Layer</text>
+    <text class="sub" x="117" y="411">canonical behavioral</text>
+    <text class="sub" x="117" y="425">records · provenance · w</text>
   </g>
-  <!-- Col 2 nodes -->
+
+  <!-- Col 2 — Shared Memory -->
   <g class="node" data-id="l1">
-    <rect x="262" y="100" width="200" height="68" fill="#1a2520" stroke="#81C784"/>
-    <text x="362" y="126">L1 · Raw Outcome Store</text>
-    <text class="sub" x="362" y="143">Append-only · behavioral + survey</text>
-    <text class="sub" x="362" y="157">+ synthetic events (tagged)</text>
+    <rect x="246" y="88" width="200" height="58" fill="#1a2520" stroke="#81C784"/>
+    <text x="346" y="110">L1 · Raw Outcome Store</text>
+    <text class="sub" x="346" y="128">append-only · all provenance</text>
   </g>
   <g class="node" data-id="l2">
-    <rect x="262" y="224" width="200" height="68" fill="#1f1a1a" stroke="#EF9A9A"/>
-    <text x="362" y="250">L2 · Prediction Ledger</text>
-    <text class="sub" x="362" y="267">Stamped before outcomes arrive</text>
-    <text class="sub" x="362" y="281">Outcome linked on arrival</text>
+    <rect x="246" y="170" width="200" height="58" fill="#1f1a1a" stroke="#EF9A9A"/>
+    <text x="346" y="192">L2 · Prediction Ledger</text>
+    <text class="sub" x="346" y="210">stamped before outcomes</text>
   </g>
   <g class="node" data-id="l3">
-    <rect x="262" y="348" width="200" height="68" fill="#1a2020" stroke="#80DEEA"/>
-    <text x="362" y="374">L3 · Segment Posteriors</text>
-    <text class="sub" x="362" y="391">EMA-weighted empirical dists</text>
-    <text class="sub" x="362" y="405">Calibration residuals by kind</text>
+    <rect x="246" y="252" width="200" height="58" fill="#1a2020" stroke="#80DEEA"/>
+    <text x="346" y="274">L3 · Segment Posteriors</text>
+    <text class="sub" x="346" y="292">EMA-weighted · residuals</text>
   </g>
   <g class="node" data-id="l4">
-    <rect x="262" y="472" width="200" height="68" fill="#211f1a" stroke="#FFD54F"/>
-    <text x="362" y="498">L4 · Calibrator Cache</text>
-    <text class="sub" x="362" y="515">Per-kind route params</text>
-    <text class="sub" x="362" y="529">LoRA adapter weights (gated)</text>
+    <rect x="246" y="334" width="200" height="58" fill="#211f1a" stroke="#FFD54F"/>
+    <text x="346" y="354">L4 · Config / Adapter Cache</text>
+    <text class="sub" x="346" y="372">method config · LoRA (gated)</text>
   </g>
+  <text class="sub" x="346" y="420" text-anchor="middle" fill="#6e7681">per-tenant · data-isolated</text>
+
+  <!-- Foundation Model region -->
   <g class="node" data-id="centaur">
-    <rect x="262" y="590" width="312" height="64" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/>
-    <text x="418" y="616">Centaur Behavioral Foundation</text>
-    <text class="sub" x="418" y="633">Fine-tuned on: synthetic (phase 0) &#8594; real behavioral (phase 1+)</text>
+    <rect x="484" y="86" width="366" height="58" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/>
+    <text x="667" y="108">Centaur Behavioral Foundation</text>
+    <text class="sub" x="667" y="126">fine-tuned on canonical behavioral records</text>
   </g>
-  <!-- Col 3 nodes -->
-  <g class="node" data-id="classifier">
-    <rect x="616" y="100" width="252" height="68" fill="#1e1e1a" stroke="#FFD54F"/>
-    <text x="742" y="120">Task/Environment</text>
-    <text x="742" y="136">Enrichment</text>
-    <text class="sub" x="742" y="153">context · structure · L3 priors</text>
-    <text class="sub" x="742" y="165">versioned · gated config</text>
+  <g class="node" data-id="finetune">
+    <rect x="484" y="160" width="178" height="58" fill="#0e1f2a" stroke="#80DEEA"/>
+    <text x="573" y="182" font-size="11.5">GPU Fine-tune</text>
+    <text class="sub" x="573" y="199">A100 spot · monthly</text>
   </g>
-  <g class="node" data-id="router">
-    <rect x="616" y="228" width="252" height="80" fill="#1f1e1a" stroke="#555"/>
-    <text x="742" y="252">Coverage Policy</text>
-    <text class="sub" x="742" y="269">risky choice / moral dilemma</text>
-    <text class="sub" x="742" y="283">&#8594; abstain (return uniform)</text>
-    <text class="sub" x="742" y="297">known-unreliable domains</text>
+  <g class="node" data-id="lora">
+    <rect x="672" y="160" width="178" height="58" fill="#0e1f2a" stroke="#80DEEA"/>
+    <text x="761" y="182" font-size="11.5">LoRA Adapters &#8594; L4</text>
+    <text class="sub" x="761" y="199">per-tenant · gated</text>
   </g>
+  <text class="sub" x="667" y="250" text-anchor="middle" fill="#80DEEA" opacity="0.8">improves via weights · cross-tenant aggregate</text>
+
+  <!-- Enrichment axis band -->
+  <g class="node" data-id="enrichment">
+    <rect x="484" y="306" width="366" height="64" fill="#1d1419" stroke="#F48FB1" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="667" y="326" fill="#F48FB1" font-size="11.5">Experimental Enrichment Axis</text>
+    <text class="sub" x="667" y="344">task decomposition + contextualization</text>
+    <text class="sub" x="667" y="360" fill="#f0a8c0">candidate enrichment for BOTH branches</text>
+  </g>
+
+  <!-- Method Optimization region -->
+  <g class="node" data-id="propose">
+    <rect x="484" y="430" width="116" height="56" fill="#211f10" stroke="#FFD54F"/>
+    <text x="542" y="452" font-size="11">Propose Config</text>
+    <text class="sub" x="542" y="469">prompt / enrich</text>
+  </g>
+  <g class="node" data-id="score">
+    <rect x="610" y="430" width="120" height="56" fill="#211f10" stroke="#FFD54F"/>
+    <text x="670" y="452" font-size="11">Score on Held-out</text>
+    <text class="sub" x="670" y="469">L2 ledger holdout</text>
+  </g>
+  <g class="node" data-id="laddergate">
+    <rect x="740" y="430" width="110" height="56" fill="#211f10" stroke="#FFD54F"/>
+    <text x="795" y="452" font-size="11">Ladder Gate &#951;</text>
+    <text class="sub" x="795" y="469">noise-guarded</text>
+  </g>
+  <g class="node" data-id="methodconfig">
+    <rect x="560" y="510" width="214" height="52" fill="#211f10" stroke="#FFD54F" stroke-width="2"/>
+    <text x="667" y="530">Method Config &#8594; L4</text>
+    <text class="sub" x="667" y="547">versioned · per-tenant</text>
+  </g>
+  <text class="sub" x="667" y="590" text-anchor="middle" fill="#FFD54F" opacity="0.8">iterate: propose &#8594; score &#8594; gate &#8594; accept</text>
+
+  <!-- Col 4 — Prediction & Gate -->
+  <text class="sub" x="1022" y="86" text-anchor="middle" fill="#8b949e">Prediction Spectrum (by volume)</text>
   <g class="node" data-id="cold">
-    <rect x="616" y="370" width="76" height="68" fill="#1a2020" stroke="#80DEEA"/>
-    <text x="654" y="396">Cold</text>
-    <text class="sub" x="654" y="412">n &lt; 100</text>
-    <text class="sub" x="654" y="426">ICL/RAG</text>
+    <rect x="890" y="98" width="84" height="62" fill="#1a2020" stroke="#80DEEA"/>
+    <text x="932" y="118" font-size="11.5">Cold</text>
+    <text class="sub" x="932" y="134">n &lt; 100</text>
+    <text class="sub" x="932" y="148">ICL / RAG</text>
   </g>
   <g class="node" data-id="warm">
-    <rect x="704" y="370" width="76" height="68" fill="#211f1a" stroke="#FFD54F"/>
-    <text x="742" y="396">Warm</text>
-    <text class="sub" x="742" y="412">n &#8805; 100</text>
-    <text class="sub" x="742" y="426">Calibrated</text>
+    <rect x="980" y="98" width="84" height="62" fill="#211f1a" stroke="#FFD54F"/>
+    <text x="1022" y="118" font-size="11.5">Warm</text>
+    <text class="sub" x="1022" y="134">n &#8805; 100</text>
+    <text class="sub" x="1022" y="148">calibrated</text>
   </g>
   <g class="node" data-id="hot">
-    <rect x="792" y="370" width="76" height="68" fill="#200e0e" stroke="#EF9A9A"/>
-    <text x="830" y="396">Hot</text>
-    <text class="sub" x="830" y="412">n &#8805; 10k</text>
-    <text class="sub" x="830" y="426">Centaur</text>
+    <rect x="1070" y="98" width="84" height="62" fill="#200e0e" stroke="#EF9A9A"/>
+    <text x="1112" y="118" font-size="11.5">Hot</text>
+    <text class="sub" x="1112" y="134">n &#8805; 10k</text>
+    <text class="sub" x="1112" y="148">Centaur+LoRA</text>
   </g>
-  <!-- Col 4 nodes -->
   <g class="node" data-id="output">
-    <rect x="910" y="228" width="162" height="60" fill="#152015" stroke="#81C784" stroke-width="2"/>
-    <text x="991" y="252">Predicted Distribution</text>
-    <text class="sub" x="991" y="268">stamps L2 Ledger</text>
+    <rect x="890" y="200" width="264" height="58" fill="#152015" stroke="#81C784" stroke-width="2"/>
+    <text x="1022" y="222">Predicted Distribution</text>
+    <text class="sub" x="1022" y="240">stamps L2 ledger</text>
   </g>
   <g class="node" data-id="gate">
-    <rect x="910" y="430" width="162" height="110" fill="#221a0a" stroke="#FFD54F" stroke-width="2"/>
-    <text x="991" y="458">Update Gate</text>
-    <text class="sub" x="991" y="476">&#9312; Shadow eval (1k preds)</text>
-    <text class="sub" x="991" y="491">&#9313; Lift test (Blum-Hardt &#951;)</text>
-    <text class="sub" x="991" y="506">&#9314; Reliability ceiling</text>
-    <text class="sub" x="991" y="521">&#9315; Drift check (PSI)</text>
-    <text class="sub" x="991" y="536">&#9316; Human sign-off (fine-tune)</text>
+    <rect x="890" y="320" width="264" height="130" fill="#221a0a" stroke="#FFD54F" stroke-width="2"/>
+    <text x="1022" y="342">Update Gate</text>
+    <text class="sub" x="1022" y="362">&#9312; shadow eval (&#8805;1k preds)</text>
+    <text class="sub" x="1022" y="377">&#9313; lift test (Blum-Hardt &#951;)</text>
+    <text class="sub" x="1022" y="392">&#9314; reliability ceiling</text>
+    <text class="sub" x="1022" y="407">&#9315; drift check (PSI)</text>
+    <text class="sub" x="1022" y="422">&#9316; human sign-off (fine-tune)</text>
   </g>
-  <!-- Edges -->
-  <path class="edge" stroke="#FF8A65" marker-end="url(#d-arr-behavioral)" d="M220,130 H262"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#d-arr-survey)"     d="M220,250 C238,250 248,134 262,134"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#d-arr-survey)"     d="M124,280 V470"/>
-  <path class="edge" stroke="#555"    marker-end="url(#d-arrow)"           d="M220,370 H262"/>
-  <path class="edge" stroke="#CE93D8" marker-end="url(#d-arr-synthetic)"  d="M220,500 C238,500 248,155 262,155"/>
-  <path class="edge" stroke="#CE93D8" marker-end="url(#d-arr-synthetic)"  d="M220,542 C238,600 248,622 262,622"/>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#d-arr-feedback)"   d="M362,168 V224"/>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#d-arr-feedback)"   d="M362,292 V348"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)"       d="M362,416 V472"/>
-  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M462,382 C530,382 580,404 616,404"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)"       d="M462,506 C550,506 640,440 704,420"/>
-  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M574,610 C590,610 800,500 830,438"/>
-  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M460,595 C530,570 680,480 742,438"/>
-  <path class="edge" stroke="#4FC3F7" stroke-dasharray="4,3" marker-end="url(#d-arr-survey)" d="M462,130 H616"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)"       d="M742,168 V228"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)"       d="M700,308 C676,308 654,340 654,370"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)"       d="M742,308 V370"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)"       d="M784,308 C808,308 830,340 830,370"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-prediction)" d="M692,395 C840,370 910,290 910,270"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-prediction)" d="M780,395 C860,370 910,295 910,275"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-prediction)" d="M868,400 C895,390 910,320 910,288"/>
-  <path class="edge" stroke="#EF9A9A" stroke-dasharray="5,3" marker-end="url(#d-arr-feedback)" d="M910,268 C880,268 820,268 540,258 C500,256 470,258 462,258"/>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#d-arr-gate)"     d="M910,485 C880,485 780,520 462,520"/>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#d-arr-gate)"     d="M910,540 C890,600 800,630 574,628"/>
-  <path class="edge" stroke="#EF9A9A" stroke-dasharray="4,3" marker-end="url(#d-arr-feedback)" d="M991,288 V430"/>
-  <path class="edge" stroke="#80DEEA" stroke-dasharray="6,3" marker-end="url(#d-arr-centaur)"  d="M124,600 C180,640 230,650 262,640"/>
-  <text x="124" y="620" font-size="9" fill="#80DEEA" opacity="0.7" text-anchor="middle">cross-tenant</text>
-  <text x="124" y="632" font-size="9" fill="#80DEEA" opacity="0.7" text-anchor="middle">anonymized agg.</text>
+
+  <!-- Edges: sources -> normalize (left gather bus) -->
+  <path class="edge" stroke="#FF8A65" marker-end="url(#d-arr-behavioral)" d="M24,118 C6,150 6,360 24,396"/>
+  <path class="edge" stroke="#4FC3F7" marker-end="url(#d-arr-survey)"     d="M24,182 C8,210 8,362 24,402"/>
+  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M24,246 C12,270 10,364 24,408"/>
+  <path class="edge" stroke="#555"    marker-end="url(#d-arrow)"          d="M24,310 C16,332 14,366 24,414"/>
+  <!-- normalize -> L1 -->
+  <path class="edge" stroke="#CE93D8" marker-end="url(#d-arr-record)"     d="M210,388 C232,388 246,140 246,117"/>
+  <!-- memory internal -->
+  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-centaur)"    d="M246,124 C228,160 228,232 246,266"/>
+  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-gate)"       d="M346,310 V334"/>
+  <!-- L1 -> Centaur (training corpus) -->
+  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M446,113 C466,113 478,113 484,113"/>
+  <!-- Centaur internal -->
+  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M573,144 V160"/>
+  <path class="edge" stroke="#80DEEA" marker-end="url(#d-arr-centaur)"    d="M662,189 H672"/>
+  <path class="edge ctrl" stroke="#80DEEA" stroke-dasharray="5,3" marker-end="url(#d-arr-gate)" d="M761,218 C761,270 470,355 446,357"/>
+  <!-- Centaur -> hot path -->
+  <path class="edge ctrl" stroke="#80DEEA" stroke-dasharray="5,3" marker-end="url(#d-arr-centaur)" d="M850,118 C900,118 1040,125 1070,128"/>
+  <!-- Enrichment -> both branches -->
+  <path class="edge" stroke="#F48FB1" stroke-dasharray="6,3" marker-end="url(#d-arr-exp)" d="M573,306 V218"/>
+  <path class="edge" stroke="#F48FB1" stroke-dasharray="6,3" marker-end="url(#d-arr-exp)" d="M560,370 V430"/>
+  <!-- Method loop -->
+  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)" d="M600,458 H610"/>
+  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)" d="M730,458 H740"/>
+  <path class="edge" stroke="#FFD54F" marker-end="url(#d-arr-gate)" d="M795,486 C795,505 730,512 776,512"/>
+  <path class="edge ctrl" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#d-arr-gate)" d="M560,536 C470,560 346,440 346,394"/>
+  <path class="edge ctrl" stroke="#FFD54F" stroke-dasharray="4,3" marker-end="url(#d-arr-gate)" d="M560,520 C520,500 492,478 484,460"/>
+  <!-- L2 -> score (holdout) -->
+  <path class="edge ctrl" stroke="#EF9A9A" stroke-dasharray="5,3" marker-end="url(#d-arr-feedback)" d="M446,199 C560,199 670,360 670,430"/>
+  <!-- spectrum -> output -->
+  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-prediction)" d="M932,160 C932,185 1000,200 1010,200"/>
+  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-prediction)" d="M1022,160 V200"/>
+  <path class="edge" stroke="#81C784" marker-end="url(#d-arr-prediction)" d="M1112,160 C1112,185 1044,200 1034,200"/>
+  <!-- L4 -> warm (calibrator load) -->
+  <path class="edge ctrl" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#d-arr-gate)" d="M446,360 C700,320 980,200 1006,160"/>
+  <!-- output -> L2 (stamp) -->
+  <path class="edge ctrl" stroke="#EF9A9A" stroke-dasharray="5,3" marker-end="url(#d-arr-feedback)" d="M890,228 C700,240 560,205 446,200"/>
+  <!-- gate -> L4 (promote) / gate -> Centaur (ship) -->
+  <path class="edge ctrl" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#d-arr-gate)" d="M890,380 C700,400 470,360 446,353"/>
+  <path class="edge ctrl" stroke="#80DEEA" stroke-dasharray="5,3" marker-end="url(#d-arr-centaur)" d="M1022,320 C1022,200 880,135 850,124"/>
+
   <g id="pg-detail"></g>
 </svg>
 <div class="legend">
   <div class="legend-title">Signal Types</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Stated / survey</div>
   <div class="legend-row"><div class="legend-dot" style="background:#FF8A65"></div>Revealed / behavioral</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Synthetic / bridge</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Stated / survey</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Canonical records</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Foundation model</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Method / gate</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#F48FB1"></div>Enrichment (experimental)</div>
   <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Prediction output</div>
   <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback / ledger</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Centaur foundation</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Update gate</div>
 </div>
 </div>
 </div>
@@ -677,96 +781,99 @@ body {
 <div class="page" id="page-3">
 <div class="diagram-hdr">
   <h2>Deployment Building Blocks</h2>
-  <p>Infrastructure layers · 6 rows from client ingestion to prediction serving and monitoring</p>
+  <p>Four layers · ingestion &#8594; storage &#8594; the two branches as infrastructure &#8594; serving + monitoring · click any tile for the build / buy / defer call</p>
 </div>
+<div class="deploy-decisions">
+  <div class="dd-card" style="border-left-color:#4FC3F7">
+    <div class="dd-h">LLM serving<span class="dd-tag" style="background:#4FC3F722;color:#4FC3F7">Buy first</span></div>
+    <p>API-based via <strong>OpenRouter</strong> — one key, any vendor, zero infra. What Part&nbsp;I already runs on.</p>
+  </div>
+  <div class="dd-card" style="border-left-color:#80DEEA">
+    <div class="dd-h">Fine-tune + host<span class="dd-tag" style="background:#80DEEA22;color:#80DEEA">Managed</span></div>
+    <p>A service that fine-tunes <em>and</em> serves the model — <strong>Together&nbsp;AI</strong> the candidate. OpenAI-compatible, no GPU ops.</p>
+  </div>
+  <div class="dd-card" style="border-left-color:#FFD54F">
+    <div class="dd-h">Self-hosted GPUs<span class="dd-tag" style="background:#FFD54F22;color:#FFD54F">Defer</span></div>
+    <p>Rented GPUs (vLLM) <strong>only</strong> once throughput &amp; per-token cost beat the ops overhead — not before.</p>
+  </div>
+  <div class="dd-card" style="border-left-color:#81C784">
+    <div class="dd-h">Eval &amp; experiment store<span class="dd-tag" style="background:#81C78422;color:#81C784">Build</span></div>
+    <p>Own it — productionize Part&nbsp;I's <strong>Ledger + manifest + LadderGate</strong> into our eval harness &amp; results DB. The discipline is the moat.</p>
+  </div>
+</div>
+<div class="deploy-open"><strong>Open question:</strong> low-level training stacks (e.g.&nbsp;<em>Tinker</em>) likely overshoot our modest LoRA needs — a managed fine-tune service is the default until proven otherwise.</div>
 <div class="svg-wrap" style="position:relative">
-<svg id="svg-deploy" viewBox="0 0 1060 740" xmlns="http://www.w3.org/2000/svg">
+<svg id="svg-deploy" viewBox="0 0 1060 588" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <marker id="dep-stor" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4FC3F7"/></marker>
-    <marker id="dep-modl" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FF8A65"/></marker>
-    <marker id="dep-gate" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
-    <marker id="dep-serv" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
+    <marker id="dep-stor" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#CE93D8"/></marker>
     <marker id="dep-fnd"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#80DEEA"/></marker>
+    <marker id="dep-mth"  markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#FFD54F"/></marker>
+    <marker id="dep-serv" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#81C784"/></marker>
     <marker id="dep-fb"   markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#EF9A9A"/></marker>
-    <marker id="dep-data" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b949e"/></marker>
   </defs>
-  <!-- Row 1: Client Sources -->
-  <rect class="row-bg" x="10" y="10" width="1040" height="92" rx="6"/>
-  <text class="row-label" x="530" y="30">Client Data Sources</text>
-  <g class="box"><rect x="60"  y="44" width="200" height="44" fill="#1a1f2e" stroke="#FF8A65"/><text x="160" y="62">Transaction API</text><text class="stack" x="160" y="78">webhook · batch upload</text></g>
-  <g class="box"><rect x="420" y="44" width="200" height="44" fill="#1a2432" stroke="#4FC3F7"/><text x="520" y="62">Survey Import</text><text class="stack" x="520" y="78">CSV · REST API · wave files</text></g>
-  <g class="box"><rect x="790" y="44" width="220" height="44" fill="#1a1e2e" stroke="#80DEEA"/><text x="900" y="62">Experimental Data</text><text class="stack" x="900" y="78">Psych-101 · SimBench · public</text></g>
-  <!-- Row 2: Ingestion -->
-  <rect class="row-bg" x="10" y="114" width="1040" height="100" rx="6"/>
-  <text class="row-label" x="530" y="134">Ingestion + Normalization</text>
-  <g class="box"><rect x="60"  y="148" width="200" height="52" fill="#1a2020" stroke="#FF8A65"/><text x="160" y="166">Behavioral ETL</text><text class="stack" x="160" y="182">deconfound · normalize</text><text class="stack" x="160" y="194">provenance=behavioral · w=1.0</text></g>
-  <g class="box"><rect x="356" y="148" width="200" height="52" fill="#1e1a2e" stroke="#CE93D8"/><text x="456" y="166">Survey Bridge</text><text class="stack" x="456" y="182">sample N individuals</text><text class="stack" x="456" y="194">assign propensity r&#8776;0.4&#8211;0.6</text></g>
-  <g class="box"><rect x="648" y="148" width="200" height="52" fill="#1e1a2e" stroke="#CE93D8" stroke-width="2"/><text x="748" y="166">Normalization Service</text><text class="stack" x="748" y="182">canonical behavioral record</text><text class="stack" x="748" y="194">{agent_id, context, choice, prov, w}</text></g>
-  <g class="box"><rect x="862" y="148" width="150" height="52" fill="#1a1e2e" stroke="#80DEEA"/><text x="937" y="166">Exp ETL</text><text class="stack" x="937" y="182">domain weight</text><text class="stack" x="937" y="194">provenance=exp</text></g>
-  <!-- Row 3: Storage -->
-  <rect class="row-bg" x="10" y="226" width="1040" height="108" rx="6"/>
-  <text class="row-label" x="530" y="246">Storage Layer (per-tenant, data-isolated)</text>
-  <g class="box"><rect x="40"  y="260" width="218" height="60" fill="#1a2520" stroke="#4FC3F7"/><text x="149" y="280">L1 · Raw Outcome Store</text><text class="stack" x="149" y="296">S3 / Parquet</text><text class="stack" x="149" y="310">append-only · per-tenant encryption</text></g>
-  <g class="box"><rect x="278" y="260" width="218" height="60" fill="#1f1a1a" stroke="#EF9A9A"/><text x="387" y="280">L2 · Prediction Ledger</text><text class="stack" x="387" y="296">DuckDB / columnar Parquet</text><text class="stack" x="387" y="310">stamped · outcome-linked</text></g>
-  <g class="box"><rect x="516" y="260" width="218" height="60" fill="#1a2020" stroke="#80DEEA"/><text x="625" y="280">L3 · Segment Posteriors</text><text class="stack" x="625" y="296">Redis (hot) + S3 (cold)</text><text class="stack" x="625" y="310">EMA-weighted · TTL eviction</text></g>
-  <g class="box"><rect x="754" y="260" width="256" height="60" fill="#211f1a" stroke="#FFD54F"/><text x="882" y="280">L4 · Calibrator Cache</text><text class="stack" x="882" y="296">route params: JSON · LoRA: safetensors</text><text class="stack" x="882" y="310">versioned · 30-day rollback</text></g>
-  <!-- Row 4: Model -->
-  <rect class="row-bg" x="10" y="346" width="1040" height="114" rx="6"/>
-  <text class="row-label" x="530" y="366">Model Layer</text>
-  <g class="box"><rect x="40"  y="380" width="240" height="66" fill="#1a1f2e" stroke="#FF8A65"/><text x="160" y="400">OpenRouter / vLLM</text><text class="stack" x="160" y="416">OpenAI-compatible API · single key</text><text class="stack" x="160" y="430">vendor swap = model string change</text><text class="stack" x="160" y="442">self-host at &gt;10k preds/day</text></g>
-  <g class="box"><rect x="360" y="380" width="250" height="66" fill="#1e1e1a" stroke="#FFD54F"/><text x="485" y="400">Enrichment Service</text><text class="stack" x="485" y="416">augments query with context</text><text class="stack" x="485" y="430">retrieves L3 priors (k-NN)</text><text class="stack" x="485" y="442">versioned config · gated updates</text></g>
-  <g class="box"><rect x="692" y="380" width="318" height="66" fill="#0e1f2a" stroke="#80DEEA" stroke-width="2"/><text x="851" y="400">Centaur Foundation · LoRA Fine-tune</text><text class="stack" x="851" y="416">GPU batch job · A100 spot · monthly</text><text class="stack" x="851" y="430">corpus: bridge &#8594; real behavioral</text><text class="stack" x="851" y="442">cross-tenant agg · W&amp;B tracking</text></g>
-  <!-- Row 5: Gate -->
-  <rect class="row-bg" x="10" y="472" width="1040" height="108" rx="6"/>
-  <text class="row-label" x="530" y="492">Evaluation + Update Gate</text>
-  <g class="box"><rect x="40"  y="506" width="188" height="60" fill="#221a0a" stroke="#FFD54F"/><text x="134" y="524">Shadow Eval</text><text class="stack" x="134" y="540">&#8805;1k preds / 2 weeks</text><text class="stack" x="134" y="554">challenger vs. champion</text></g>
-  <g class="box"><rect x="244" y="506" width="200" height="60" fill="#221a0a" stroke="#FFD54F"/><text x="344" y="524">Lift Test</text><text class="stack" x="344" y="540">Blum-Hardt &#951; threshold</text><text class="stack" x="344" y="554">bootstrap CI on L2 holdout</text></g>
-  <g class="box"><rect x="460" y="506" width="200" height="60" fill="#221a0a" stroke="#FFD54F"/><text x="560" y="524">Reliability Ceiling</text><text class="stack" x="560" y="540">finite-n ground-truth noise</text><text class="stack" x="560" y="554">hard cap on claimed gains</text></g>
-  <g class="box"><rect x="676" y="506" width="178" height="60" fill="#221a0a" stroke="#FFD54F"/><text x="765" y="524">Drift Check</text><text class="stack" x="765" y="540">PSI on input distribution</text><text class="stack" x="765" y="554">alert if PSI &gt; 0.2</text></g>
-  <g class="box"><rect x="870" y="506" width="162" height="60" fill="#1a1020" stroke="#CE93D8"/><text x="951" y="524">Human Sign-off</text><text class="stack" x="951" y="540">required for fine-tune</text><text class="stack" x="951" y="554">LoRA / Centaur ships</text></g>
-  <!-- Row 6: Serving -->
-  <rect class="row-bg" x="10" y="592" width="1040" height="108" rx="6"/>
-  <text class="row-label" x="530" y="612">Serving + Monitoring</text>
-  <g class="box"><rect x="60"  y="626" width="240" height="60" fill="#152015" stroke="#81C784" stroke-width="2"/><text x="180" y="645">Prediction API</text><text class="stack" x="180" y="661">REST · OpenAI-compatible</text><text class="stack" x="180" y="675">&#8594; client · latency SLA</text></g>
-  <g class="box"><rect x="400" y="626" width="240" height="60" fill="#1f1a0a" stroke="#FFD54F"/><text x="520" y="645">Drift Monitor</text><text class="stack" x="520" y="661">PSI alerts · outcome rate tracking</text><text class="stack" x="520" y="675">auto-rollback if TVD +2&#963;</text></g>
-  <g class="box"><rect x="752" y="626" width="248" height="60" fill="#1a1a1a" stroke="#8b949e"/><text x="876" y="645">Admin Dashboard</text><text class="stack" x="876" y="661">model versions · champion/challenger</text><text class="stack" x="876" y="675">rollback · Centaur corpus status</text></g>
+
+  <!-- Row 1: Ingestion + Normalization -->
+  <rect class="row-bg" x="10" y="10" width="1040" height="110" rx="6"/>
+  <text class="row-label" x="530" y="30">Ingestion + Normalization</text>
+  <g class="box" data-id="behavioral-etl"><rect x="40"  y="46" width="200" height="56" fill="#1a1f2e" stroke="#FF8A65"/><text x="140" y="66">Behavioral ETL</text><text class="stack" x="140" y="82">deconfound · normalize</text><text class="stack" x="140" y="95">provenance=behavioral</text></g>
+  <g class="box" data-id="survey-bridge"><rect x="290" y="46" width="200" height="56" fill="#1e1a2e" stroke="#CE93D8"/><text x="390" y="66">Survey Bridge</text><text class="stack" x="390" y="82">sample N individuals</text><text class="stack" x="390" y="95">stated &#8594; pseudo-events</text></g>
+  <g class="box" data-id="experimental-etl"><rect x="540" y="46" width="180" height="56" fill="#1a1e2e" stroke="#80DEEA"/><text x="630" y="66">Experimental ETL</text><text class="stack" x="630" y="82">domain-weighted</text><text class="stack" x="630" y="95">provenance=exp</text></g>
+  <g class="box" data-id="normalization-svc"><rect x="770" y="46" width="240" height="56" fill="#1e1a2e" stroke="#CE93D8" stroke-width="2"/><text x="890" y="66">Normalization Service</text><text class="stack" x="890" y="82">canonical record</text><text class="stack" x="890" y="95">{agent,context,choice,prov,w}</text></g>
+
+  <!-- Row 2: Storage -->
+  <rect class="row-bg" x="10" y="132" width="1040" height="100" rx="6"/>
+  <text class="row-label" x="530" y="152">Storage Layer (per-tenant, data-isolated)</text>
+  <g class="box" data-id="l1"><rect x="40"  y="168" width="230" height="54" fill="#1a2520" stroke="#81C784"/><text x="155" y="187">L1 · Raw Outcome Store</text><text class="stack" x="155" y="205">S3 / Parquet · append-only</text></g>
+  <g class="box" data-id="l2"><rect x="292" y="168" width="230" height="54" fill="#1f1a1a" stroke="#EF9A9A"/><text x="407" y="187">L2 · Prediction Ledger</text><text class="stack" x="407" y="205">DuckDB · stamped · outcome-linked</text></g>
+  <g class="box" data-id="l3"><rect x="544" y="168" width="230" height="54" fill="#1a2020" stroke="#80DEEA"/><text x="659" y="187">L3 · Segment Posteriors</text><text class="stack" x="659" y="205">Redis + S3 · EMA-weighted</text></g>
+  <g class="box" data-id="l4"><rect x="796" y="168" width="214" height="54" fill="#211f1a" stroke="#FFD54F"/><text x="903" y="187">L4 · Config / Adapter</text><text class="stack" x="903" y="205">JSON + safetensors · 30-day rollback</text></g>
+
+  <!-- Row 3: Two branches as infrastructure -->
+  <rect class="row-bg" x="10" y="244" width="1040" height="184" rx="6"/>
+  <text class="row-label" x="530" y="264">The Two Improvement Systems</text>
+  <rect x="22" y="276" width="506" height="142" rx="6" fill="#0d1a22" stroke="#80DEEA" stroke-opacity="0.3" stroke-dasharray="5,3"/>
+  <text class="panel-label" x="42" y="296" fill="#80DEEA">&#9312; Foundation Model</text>
+  <g class="box" data-id="gpu-finetune"><rect x="42"  y="308" width="225" height="96" fill="#0e1f2a" stroke="#80DEEA"/><text x="154" y="332">GPU Fine-tune</text><text class="stack" x="154" y="350">managed fine-tune + host</text><text class="stack" x="154" y="365">Together AI &#8594; rent GPUs later</text><text class="stack" x="154" y="380">cross-tenant · human-gated</text></g>
+  <g class="box" data-id="centaur-serving"><rect x="283" y="308" width="225" height="96" fill="#0e1f2a" stroke="#80DEEA"/><text x="395" y="332">Centaur Serving</text><text class="stack" x="395" y="350">vLLM / OpenRouter</text><text class="stack" x="395" y="365">OpenAI-compatible · single key</text><text class="stack" x="395" y="380">self-host at &gt;10k preds/day</text></g>
+  <rect x="532" y="276" width="506" height="142" rx="6" fill="#1c1a10" stroke="#FFD54F" stroke-opacity="0.3" stroke-dasharray="5,3"/>
+  <text class="panel-label" x="552" y="296" fill="#FFD54F">&#9313; Method Optimization</text>
+  <g class="box" data-id="search-runner"><rect x="552" y="308" width="150" height="96" fill="#211f10" stroke="#FFD54F"/><text x="627" y="332">Search Runner</text><text class="stack" x="627" y="350">propose · score</text><text class="stack" x="627" y="365">Ledger DAG</text><text class="stack" x="627" y="380">spec-addressed</text></g>
+  <g class="box" data-id="eval-harness"><rect x="712" y="308" width="156" height="96" fill="#211f10" stroke="#FFD54F"/><text x="790" y="332">Eval Harness</text><text class="stack" x="790" y="350">L2 holdout</text><text class="stack" x="790" y="365">Ladder gate &#951;</text><text class="stack" x="790" y="380">bootstrap CI</text></g>
+  <g class="box" data-id="config-registry"><rect x="878" y="308" width="150" height="96" fill="#211f10" stroke="#FFD54F"/><text x="953" y="332">Config Registry</text><text class="stack" x="953" y="350">versioned configs</text><text class="stack" x="953" y="365">30-day rollback</text><text class="stack" x="953" y="380">per-tenant</text></g>
+
+  <!-- Row 4: Serving + Monitoring -->
+  <rect class="row-bg" x="10" y="440" width="1040" height="100" rx="6"/>
+  <text class="row-label" x="530" y="460">Serving + Monitoring</text>
+  <g class="box" data-id="prediction-api"><rect x="60"  y="476" width="240" height="54" fill="#152015" stroke="#81C784" stroke-width="2"/><text x="180" y="495">Prediction API</text><text class="stack" x="180" y="513">REST · OpenAI-compatible · SLA</text></g>
+  <g class="box" data-id="update-gate"><rect x="340" y="476" width="240" height="54" fill="#221a0a" stroke="#FFD54F"/><text x="460" y="495">Update Gate</text><text class="stack" x="460" y="513">shadow &#8594; lift &#8594; ceiling &#8594; PSI &#8594; sign-off</text></g>
+  <g class="box" data-id="drift-monitor"><rect x="620" y="476" width="180" height="54" fill="#1f1a0a" stroke="#FFD54F"/><text x="710" y="495">Drift Monitor</text><text class="stack" x="710" y="513">PSI · auto-rollback +2&#963;</text></g>
+  <g class="box" data-id="admin-dashboard"><rect x="840" y="476" width="180" height="54" fill="#1a1a1a" stroke="#8b949e"/><text x="930" y="495">Admin Dashboard</text><text class="stack" x="930" y="513">versions · rollback</text></g>
+
   <!-- Edges -->
-  <path class="edge" stroke="#FF8A65" marker-end="url(#dep-modl)" d="M160,88 V148"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#dep-stor)" d="M520,88 V148"/>
-  <path class="edge" stroke="#80DEEA" marker-end="url(#dep-fnd)"  d="M900,88 V148"/>
-  <path class="edge" stroke="#FF8A65" marker-end="url(#dep-modl)" d="M260,174 H356"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#dep-stor)" d="M556,174 H648"/>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#dep-stor)" d="M748,200 C748,220 149,240 149,260"/>
-  <text class="edge-label" x="380" y="242">&#8594; L1</text>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#dep-fb)"   d="M258,290 H278"/>
-  <text class="edge-label" x="261" y="284">stamp</text>
-  <path class="edge" stroke="#4FC3F7" marker-end="url(#dep-stor)" d="M496,290 H516"/>
-  <text class="edge-label" x="499" y="284">agg</text>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#dep-gate)" d="M734,290 H754"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#dep-gate)" d="M625,320 C625,350 485,360 485,380"/>
-  <text class="edge-label" x="542" y="356">k-NN</text>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#dep-gate)" d="M882,320 C882,350 400,380 400,380"/>
-  <text class="edge-label" x="670" y="356">calibrator load</text>
-  <path class="edge" stroke="#80DEEA" stroke-dasharray="5,3" marker-end="url(#dep-fnd)" d="M851,380 C820,360 882,340 882,320"/>
-  <path class="edge" stroke="#FFD54F" marker-end="url(#dep-gate)" d="M160,446 C160,470 134,490 134,506"/>
-  <path class="edge" stroke="#EF9A9A" marker-end="url(#dep-fb)"   d="M387,320 C387,340 344,490 344,506"/>
-  <text class="edge-label" x="393" y="380">holdout</text>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#dep-gate)" d="M344,506 C344,350 800,340 854,320"/>
-  <text class="edge-label" x="600" y="418">PASS: promote</text>
-  <path class="edge" stroke="#80DEEA" stroke-dasharray="5,3" marker-end="url(#dep-fnd)" d="M851,506 V446"/>
-  <path class="edge" stroke="#81C784" marker-end="url(#dep-serv)" d="M160,446 C160,540 180,610 180,626"/>
-  <path class="edge" stroke="#EF9A9A" stroke-dasharray="5,3" marker-end="url(#dep-fb)" d="M180,626 C180,560 387,340 387,320"/>
-  <path class="edge" stroke="#FFD54F" stroke-dasharray="4,3" marker-end="url(#dep-gate)" d="M520,626 C520,560 882,360 882,320"/>
-  <text class="edge-label" x="700" y="528">auto-rollback</text>
+  <path class="edge" stroke="#CE93D8" marker-end="url(#dep-stor)" d="M890,102 C890,140 155,142 155,168"/>
+  <text class="edge-label" x="500" y="138">canonical records &#8594; L1</text>
+  <path class="edge" stroke="#80DEEA" marker-end="url(#dep-fnd)"  d="M155,222 V308"/>
+  <text class="edge-label" x="160" y="262">train corpus</text>
+  <path class="edge" stroke="#80DEEA" marker-end="url(#dep-fnd)"  d="M659,222 C659,260 395,280 395,308"/>
+  <text class="edge-label" x="540" y="262">L3 priors</text>
+  <path class="edge" stroke="#FFD54F" marker-end="url(#dep-mth)"  d="M407,222 C407,260 790,280 790,308"/>
+  <text class="edge-label" x="560" y="248">L2 holdout</text>
+  <path class="edge" stroke="#FFD54F" marker-end="url(#dep-mth)"  d="M903,222 C903,260 953,280 953,308"/>
+  <text class="edge-label" x="930" y="262">configs</text>
+  <path class="edge" stroke="#81C784" marker-end="url(#dep-serv)" d="M395,404 C395,440 180,452 180,476"/>
+  <path class="edge" stroke="#FFD54F" marker-end="url(#dep-mth)"  d="M790,404 C790,440 460,452 460,476"/>
+  <path class="edge" stroke="#FFD54F" stroke-dasharray="5,3" marker-end="url(#dep-mth)" d="M460,476 C460,440 903,250 903,224"/>
+  <text class="edge-label" x="640" y="430">PASS &#8594; promote to L4</text>
+  <path class="edge" stroke="#EF9A9A" stroke-dasharray="6,3" marker-end="url(#dep-fb)" d="M180,530 C50,556 22,400 22,80 C22,58 30,50 40,58"/>
+  <text class="edge-label" x="30" y="300" transform="rotate(-90 30,300)" text-anchor="middle">outcomes feed back</text>
 </svg>
 <div class="legend">
   <div class="legend-title">Layer / Concern</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#4FC3F7"></div>Storage / data</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#FF8A65"></div>Compute / model</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Evaluation / gate</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#CE93D8"></div>Ingestion / records</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Foundation model</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#FFD54F"></div>Method / gate</div>
   <div class="legend-row"><div class="legend-dot" style="background:#81C784"></div>Serving / API</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#80DEEA"></div>Centaur / foundation</div>
-  <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback / stamp</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#EF9A9A"></div>Feedback</div>
 </div>
 </div>
 </div>
@@ -802,7 +909,7 @@ function showPage(n) {
   btnPrev.disabled = (currentPage === 0);
   btnNext.disabled = (currentPage === TOTAL - 1);
   counter.textContent = (currentPage + 1) + ' / ' + TOTAL;
-  if (n !== 2) document.getElementById('detail-panel').classList.remove('visible');
+  if (n !== 2 && n !== 3) document.getElementById('detail-panel').classList.remove('visible');
   initParticles(n);
 }
 function prevPage() { if (currentPage > 0) showPage(currentPage - 1); }
@@ -821,52 +928,33 @@ var initialized = {};
 var allParticles = [];
 
 var SIMPLE_DEFS = [
-  { d:'M236,88 H276',                                         color:'#FF8A65', speed:0.014, delay:0.00 },
-  { d:'M236,196 C254,196 264,96 276,96',                      color:'#4FC3F7', speed:0.011, delay:0.30 },
-  { d:'M130,224 V288',                                         color:'#4FC3F7', speed:0.010, delay:0.60 },
-  { d:'M236,324 C258,324 268,114 276,114',                    color:'#CE93D8', speed:0.009, delay:0.20 },
-  { d:'M130,360 V470',                                         color:'#CE93D8', speed:0.007, delay:0.80 },
-  { d:'M402,116 V176',                                         color:'#EF9A9A', speed:0.012, delay:0.40 },
-  { d:'M402,232 V292',                                         color:'#EF9A9A', speed:0.012, delay:0.70 },
-  { d:'M402,348 V408',                                         color:'#FFD54F', speed:0.011, delay:0.50 },
-  { d:'M528,310 C548,310 558,96 568,96',                      color:'#80DEEA', speed:0.010, delay:0.10 },
-  { d:'M528,436 C548,436 672,394 688,380',                    color:'#FFD54F', speed:0.010, delay:0.90 },
-  { d:'M528,88 H568',                                          color:'#4FC3F7', speed:0.013, delay:0.15 },
-  { d:'M749,132 V186',                                         color:'#FFD54F', speed:0.013, delay:0.00 },
-  { d:'M749,238 V296',                                         color:'#FFD54F', speed:0.014, delay:0.45 },
-  { d:'M742,364 V424',                                         color:'#81C784', speed:0.012, delay:0.25 },
-  { d:'M638,450 C600,450 560,440 528,320',                    color:'#EF9A9A', speed:0.007, delay:0.00 },
-  { d:'M749,476 V500',                                         color:'#EF9A9A', speed:0.009, delay:0.30 },
-  { d:'M638,530 C580,530 528,490 528,464',                    color:'#FFD54F', speed:0.007, delay:0.50 },
-  { d:'M236,506 C380,530 750,490 812,364',                    color:'#80DEEA', speed:0.008, delay:0.35 }
+  { d:'M410,80 V120',                                         color:'#4FC3F7', speed:0.014, delay:0.00 },
+  { d:'M410,176 V212',                                        color:'#CE93D8', speed:0.013, delay:0.25 },
+  { d:'M410,258 C410,280 180,278 180,300',                   color:'#CE93D8', speed:0.010, delay:0.10 },
+  { d:'M410,258 C410,280 640,278 640,300',                   color:'#CE93D8', speed:0.010, delay:0.55 },
+  { d:'M180,396 C180,420 410,418 410,440',                   color:'#81C784', speed:0.011, delay:0.20 },
+  { d:'M640,396 C640,420 410,418 410,440',                   color:'#81C784', speed:0.011, delay:0.65 },
+  { d:'M410,492 V528',                                        color:'#81C784', speed:0.013, delay:0.40 },
+  { d:'M320,348 H290',                                        color:'#F48FB1', speed:0.012, delay:0.30 },
+  { d:'M500,348 H530',                                        color:'#F48FB1', speed:0.012, delay:0.75 },
+  { d:'M305,551 C140,560 44,520 44,330 C44,200 150,158 290,150', color:'#EF9A9A', speed:0.005, delay:0.00 }
 ];
 
 var DETAIL_DEFS = [
-  { d:'M220,130 H262',                                         color:'#FF8A65', speed:0.012, delay:0.00 },
-  { d:'M220,250 C238,250 248,134 262,134',                    color:'#4FC3F7', speed:0.010, delay:0.30 },
-  { d:'M124,280 V470',                                         color:'#4FC3F7', speed:0.008, delay:0.60 },
-  { d:'M220,500 C238,500 248,155 262,155',                    color:'#CE93D8', speed:0.009, delay:0.20 },
-  { d:'M220,542 C238,600 248,622 262,622',                    color:'#CE93D8', speed:0.007, delay:0.80 },
-  { d:'M362,168 V224',                                         color:'#EF9A9A', speed:0.011, delay:0.40 },
-  { d:'M362,292 V348',                                         color:'#EF9A9A', speed:0.011, delay:0.70 },
-  { d:'M362,416 V472',                                         color:'#FFD54F', speed:0.010, delay:0.50 },
-  { d:'M462,382 C530,382 580,404 616,404',                    color:'#80DEEA', speed:0.012, delay:0.10 },
-  { d:'M462,506 C550,506 640,440 704,420',                    color:'#FFD54F', speed:0.010, delay:0.90 },
-  { d:'M574,610 C590,610 800,500 830,438',                    color:'#80DEEA', speed:0.008, delay:0.35 },
-  { d:'M460,595 C530,570 680,480 742,438',                    color:'#80DEEA', speed:0.009, delay:0.65 },
-  { d:'M462,130 H616',                                         color:'#4FC3F7', speed:0.013, delay:0.15 },
-  { d:'M742,168 V228',                                         color:'#FFD54F', speed:0.012, delay:0.00 },
-  { d:'M700,308 C676,308 654,340 654,370',                    color:'#FFD54F', speed:0.013, delay:0.20 },
-  { d:'M742,308 V370',                                         color:'#FFD54F', speed:0.013, delay:0.45 },
-  { d:'M784,308 C808,308 830,340 830,370',                    color:'#FFD54F', speed:0.013, delay:0.70 },
-  { d:'M692,395 C840,370 910,290 910,270',                    color:'#81C784', speed:0.012, delay:0.25 },
-  { d:'M780,395 C860,370 910,295 910,275',                    color:'#81C784', speed:0.012, delay:0.50 },
-  { d:'M868,400 C895,390 910,320 910,288',                    color:'#81C784', speed:0.012, delay:0.75 },
-  { d:'M910,268 C880,268 820,268 540,258 C500,256 470,258 462,258', color:'#EF9A9A', speed:0.007, delay:0.00 },
-  { d:'M910,485 C880,485 780,520 462,520',                    color:'#FFD54F', speed:0.007, delay:0.50 },
-  { d:'M910,540 C890,600 800,630 574,628',                    color:'#FFD54F', speed:0.006, delay:0.80 },
-  { d:'M991,288 V430',                                         color:'#EF9A9A', speed:0.009, delay:0.30 },
-  { d:'M124,600 C180,640 230,650 262,640',                    color:'#80DEEA', speed:0.008, delay:0.10 }
+  { d:'M24,118 C6,150 6,360 24,396',                         color:'#FF8A65', speed:0.009, delay:0.00 },
+  { d:'M24,182 C8,210 8,362 24,402',                         color:'#4FC3F7', speed:0.009, delay:0.30 },
+  { d:'M210,388 C232,388 246,140 246,117',                   color:'#CE93D8', speed:0.009, delay:0.55 },
+  { d:'M446,113 C466,113 478,113 484,113',                   color:'#80DEEA', speed:0.013, delay:0.10 },
+  { d:'M573,144 V160',                                       color:'#80DEEA', speed:0.014, delay:0.20 },
+  { d:'M662,189 H672',                                       color:'#80DEEA', speed:0.014, delay:0.45 },
+  { d:'M573,306 V218',                                       color:'#F48FB1', speed:0.011, delay:0.15 },
+  { d:'M560,370 V430',                                       color:'#F48FB1', speed:0.011, delay:0.60 },
+  { d:'M600,458 H610',                                       color:'#FFD54F', speed:0.014, delay:0.00 },
+  { d:'M730,458 H740',                                       color:'#FFD54F', speed:0.014, delay:0.25 },
+  { d:'M795,486 C795,505 730,512 776,512',                  color:'#FFD54F', speed:0.012, delay:0.50 },
+  { d:'M932,160 C932,185 1000,200 1010,200',                color:'#81C784', speed:0.012, delay:0.25 },
+  { d:'M1022,160 V200',                                      color:'#81C784', speed:0.012, delay:0.50 },
+  { d:'M1112,160 C1112,185 1044,200 1034,200',              color:'#81C784', speed:0.012, delay:0.75 },
 ];
 
 function initParticles(pageIdx) {
@@ -889,9 +977,9 @@ function initParticles(pageIdx) {
     var len = tmpPath.getTotalLength();
 
     var circle = document.createElementNS(svgNS, 'circle');
-    circle.setAttribute('r', '3.5');
+    circle.setAttribute('r', '2.4');
     circle.setAttribute('fill', def.color);
-    circle.setAttribute('opacity', '0.85');
+    circle.setAttribute('opacity', '0.45');
     group.appendChild(circle);
 
     allParticles.push({ path: tmpPath, len: len, circle: circle, speed: def.speed, t: (def.delay + i * 0.04) % 1 });
@@ -929,29 +1017,35 @@ var NODE_DATA = {
     out:'Aggregate distributions into L1. Feeds the normalization layer (bridge path). Cold-path prior for opinion predictions.',
     rat:'High LLM nativeness — surveys are what the model pretrained on. Stage 06 showed well-prompted survey prediction is already well-calibrated. Serves as prior, not calibration target, for behavioral prediction.'
   },
+  experimental: {
+    title:'Experimental Data', badge:'Data Source', badgeColor:'#80DEEA',
+    inp:'Public behavioral/cognitive datasets: Psych-101 cognitive tasks, SimBench survey distributions, other published outcome data.',
+    out:'Domain-weighted canonical records into L1. Primary corpus for the Centaur cold-start (phase 0) before tenant behavioral data accumulates.',
+    rat:'Bootstraps the foundation model before real outcomes exist. Cross-domain transfer (cognitive tasks → e-commerce) is empirical — tested on held-out behavioral sets before it is asserted.'
+  },
   external: {
     title:'External Signals', badge:'Data Source', badgeColor:'#666',
     inp:'Market context, competitive pricing, seasonality, macroeconomic indicators.',
     out:'Contextual features into L3 as conditioning covariates. Used for drift attribution.',
     rat:'Purchase propensity is sensitive to context that surveys and individual history do not fully capture. External signals improve confound attribution without requiring private customer data.'
   },
-  bridge: {
-    title:'Data Normalization Layer', badge:'Normalization', badgeColor:'#CE93D8',
+  normalize: {
+    title:'Normalization Layer', badge:'Normalization', badgeColor:'#CE93D8',
     inp:'All input types: survey distributions, transaction logs, experimental outcomes — heterogeneous formats.',
-    out:'Canonical single-choice behavioral records {agent_id, context, choice, provenance, weight}. One format for all downstream components.',
-    rat:'Three normalization paths: (A) behavioral ETL — deconfound + tag provenance=behavioral w=1.0; (B) survey bridge — sample N individuals, assign propensity r~0.4-0.6, generate pseudo-events; (C) experimental data — domain-weighted records. Enables Centaur training on all sources and makes L1-L4 format-agnostic.'
+    out:'Canonical single-choice behavioral records {agent_id, context, choice, provenance, weight}. One format for both branches and all of L1–L4.',
+    rat:'Three paths: (A) behavioral ETL — deconfound + tag provenance=behavioral w=1.0; (B) survey bridge — sample N individuals, assign propensity r~0.4-0.6, generate pseudo-events; (C) experimental — domain-weighted records. This single representation is what lets the foundation model train on every source and what keeps the method loop model-agnostic.'
   },
   l1: {
     title:'L1 · Raw Outcome Store', badge:'Memory', badgeColor:'#81C784',
     inp:'All canonical behavioral records from all normalization paths.',
-    out:'Source for L2 outcome linking, L3 aggregation, Centaur training corpus, retrospective audit.',
+    out:'Source for L2 outcome linking, L3 aggregation, the Centaur training corpus, and retrospective audit.',
     rat:'Append-only and permanent — the audit log. GDPR via per-tenant encryption key revocation (no deletion). If aggregation logic changes, L1 is reprocessed from scratch.'
   },
   l2: {
     title:'L2 · Prediction Ledger', badge:'Memory', badgeColor:'#EF9A9A',
     inp:'Every prediction stamped before its outcome arrives: spec_hash, task kind, segment, predicted distribution, timestamp. Outcome linked later.',
-    out:'Paired (prediction, outcome) records for calibration error computation, lift testing, shadow evaluation.',
-    rat:'The key abstraction preventing data snooping. Without pre-stamping, all calibration is retrospective and gameable. Same discipline as Part I dev/val/test protocol — now at inference time.'
+    out:'Paired (prediction, outcome) records. The held-out scoring set for the Method Optimization Loop, plus lift testing and shadow evaluation.',
+    rat:'The key abstraction preventing data snooping. Without pre-stamping, all method scoring is retrospective and gameable. Same discipline as Part I dev/val/test protocol — now at inference time, and it is what makes the method loop honest.'
   },
   l3: {
     title:'L3 · Segment Posteriors', badge:'Memory', badgeColor:'#80DEEA',
@@ -960,28 +1054,58 @@ var NODE_DATA = {
     rat:'Living summary of learned distributions. EMA (lambda=0.9 weekly) tracks trend naturally. Provides k-NN retrieval target for cold-path predictions on new segments.'
   },
   l4: {
-    title:'L4 · Calibrator Cache', badge:'Memory', badgeColor:'#FFD54F',
-    inp:'Calibration residuals from L3. Gate-approved updates only.',
-    out:'Per-kind route params (temperature, shift vectors). LoRA adapter weights (human-gated). Versioned, 30-day rollback.',
-    rat:'Never updated without the 5-step gate. Every version retained 30 days. Auto-rollback fires if production TVD rises >2 sigma in a 500-prediction trailing window.'
+    title:'L4 · Config / Adapter Cache', badge:'Memory', badgeColor:'#FFD54F',
+    inp:'Gate-approved method configs (from the Method Optimization Loop) and LoRA adapter weights (from the Foundation Model branch).',
+    out:'Per-tenant prompt/enrichment config + route params. LoRA adapter weights (human-gated). Versioned, 30-day rollback.',
+    rat:'The shared output cache both branches write to — but only through the gate. Every version retained 30 days. Auto-rollback fires if production TVD rises >2 sigma in a 500-prediction trailing window.'
   },
   centaur: {
-    title:'Centaur Behavioral Foundation', badge:'Foundation', badgeColor:'#80DEEA',
-    inp:'Phase 0: synthetic behavioral + Psych-101 cognitive + SimBench pseudo-behavioral. Phase 1+: anonymized cross-tenant real behavioral.',
-    out:'Better zero-shot behavioral prior for warm and hot paths. Shared across tenants via weights, not data.',
-    rat:'Following Binz et al. (2024): fine-tuning on behavioral outcomes encodes shared decision-making structure. Cross-domain transfer to e-commerce is empirical — tested on held-out cross-tenant behavioral set before asserting. Task/environment-enriched inputs are the primary lever for improving Centaur performance (Phase 1 experiment).'
+    title:'Centaur Behavioral Foundation', badge:'Foundation Model', badgeColor:'#80DEEA',
+    inp:'Phase 0: experimental + synthetic + SimBench pseudo-behavioral. Phase 1+: anonymized cross-tenant real behavioral records from L1.',
+    out:'A better zero-shot behavioral prior for the warm and hot paths. Shared across tenants via weights, not data.',
+    rat:'Branch ①, the "better model". Following Binz et al. (2024): fine-tuning on behavioral outcomes encodes shared decision-making structure in weights. This is a fundamentally different improvement axis from the method loop — the model itself getting smarter, learned from outcome data.'
   },
-  classifier: {
-    title:'Task/Environment Enrichment', badge:'Enrichment', badgeColor:'#FFD54F',
-    inp:'Query + segment + offer context + individual history. Retrieves behavioral priors from L3 (k-NN).',
-    out:'Enriched prompt: decision environment description, task structure framing, behavioral priors. Versioned enrichment config applied.',
-    rat:'Part I showed the gain came from richer environmental description, not routing dispatch. task_context on surveys (+1.57, +5.53 on val) worked because of better framing, not classification. Universal enrichment is more defensible than a brittle task classifier. Enrichment config is a learned, gated artifact updated the same way calibrators are.'
+  finetune: {
+    title:'GPU Fine-tune Job', badge:'Foundation Model', badgeColor:'#80DEEA',
+    inp:'L1 training corpus (cross-tenant, anonymized). Current Centaur checkpoint. Optionally enriched inputs (experimental axis).',
+    out:'A challenger Centaur / LoRA checkpoint, submitted to the update gate before it can ship.',
+    rat:'Monthly A100 spot batch job. The experimental enrichment axis (task decomposition + contextualization) is tested here as an input treatment — does training on enriched inputs improve the foundation model? Tested, not assumed.'
   },
-  router: {
-    title:'Coverage Policy', badge:'Guardrail', badgeColor:'#888',
-    inp:'Enriched query. Task context type.',
-    out:'For known-unreliable contexts (risky choice, moral dilemma at low n): return uniform. Otherwise: pass to cold/warm/hot path.',
-    rat:'Abstain-on-uncertainty is a coverage policy, not a routing strategy. Part I: uniform strictly dominates model output on risky choice (val: -14.12 for voting vs +11.1 for uniform). This boundary is fixed for known-unreliable domains until volume justifies a prediction attempt.'
+  lora: {
+    title:'LoRA Adapters', badge:'Foundation Model', badgeColor:'#80DEEA',
+    inp:'Per-tenant residual between the shared Centaur backbone and that tenant’s specific outcomes.',
+    out:'Tenant-specific adapter weights written to L4 (gated). Loaded by the hot path.',
+    rat:'How tenant-specific behavior is encoded without polluting the shared backbone. Adapters are per-tenant and isolated; the backbone stays cross-tenant. Ships only with human sign-off.'
+  },
+  enrichment: {
+    title:'Experimental Enrichment Axis', badge:'Experimental', badgeColor:'#F48FB1',
+    inp:'Query + segment + offer context + task structure. Candidate enrichment treatments: task decomposition, richer contextualization, retrieved L3 priors.',
+    out:'Enriched inputs offered to BOTH branches — as a prompt treatment in the method loop, and as a training/inference input treatment for Centaur.',
+    rat:'A distinct experimental direction, not part of either branch by default. Part I showed richer environmental framing was the durable lever (task_context: +1.57 opinion, +5.53 knowledge on val). Here it is a cross-cutting hypothesis: enrichment can lift the model branch, the method branch, or both — and the architecture mandates measuring which.'
+  },
+  propose: {
+    title:'Propose Config', badge:'Method Loop', badgeColor:'#FFD54F',
+    inp:'Current champion config. A pre-registered lever (prompt strategy, enrichment setting, calibrator wrap).',
+    out:'A candidate method config (spec-hash addressed) to be scored.',
+    rat:'Branch ②, step 1. This is the data-driven methodology exploration from Part I, now running on live ledger data. Prompts are the first example of a "method" — but the lever set is general (calibration, retrieval, decomposition settings).'
+  },
+  score: {
+    title:'Score on Held-out', badge:'Method Loop', badgeColor:'#FFD54F',
+    inp:'Candidate config. A held-out slice of the L2 prediction ledger (predictions paired with real outcomes).',
+    out:'A score (SimBench-style lift over the champion) with a bootstrap CI.',
+    rat:'Branch ②, step 2. Scoring on pre-stamped ledger outcomes is what makes the method loop honest — the config never sees the outcomes it is judged on until they have arrived independently.'
+  },
+  laddergate: {
+    title:'Ladder Gate (η)', badge:'Method Loop', badgeColor:'#FFD54F',
+    inp:'Challenger score vs champion score. Bootstrap noise estimate.',
+    out:'Accept only if improvement exceeds the Blum-Hardt η threshold; otherwise reject and keep the champion.',
+    rat:'Branch ②, step 3. The LadderGate (Blum & Hardt 2015) bounds generalization error under adaptive search — the same noise-floor discipline that caught Part I’s risky_choice overfit. Without it, repeated method search overfits the ledger.'
+  },
+  methodconfig: {
+    title:'Method Config Artifact', badge:'Method Loop', badgeColor:'#FFD54F',
+    inp:'A gate-accepted config.',
+    out:'Versioned, per-tenant method config written to L4. Feeds back to "Propose" as the new champion (the loop iterates).',
+    rat:'Branch ②, output. Improvement here is a config artifact, not new model weights — cheap, fast, per-tenant, and fully reversible. This is the axis that improves how we use the model, independent of the model itself.'
   },
   cold: {
     title:'Cold Path (n < 100)', badge:'Inference', badgeColor:'#80DEEA',
@@ -991,27 +1115,133 @@ var NODE_DATA = {
   },
   warm: {
     title:'Warm Path (n >= 100)', badge:'Inference', badgeColor:'#FFD54F',
-    inp:'Enriched query + Centaur backbone prior + L4 calibrator params.',
-    out:'Calibrated predicted distribution. Per-kind calibration: logistic recalibration for behavioral propensity; entropy-conditioned temperature for opinion if needed.',
-    rat:'Stage 06: calibration NOT needed for well-prompted survey predictions. The warm path applies calibration selectively where the LLM is genuinely OOD — revealed behavioral outcomes.'
+    inp:'Enriched query + Centaur backbone prior + L4 method config / calibrator params.',
+    out:'Calibrated predicted distribution. Per-kind calibration applied where the model is genuinely OOD (revealed behavior).',
+    rat:'Where both branches meet at inference: the Centaur backbone (branch ①) conditioned by the gated method config (branch ②). Stage 06: calibration is applied selectively, not everywhere.'
   },
   hot: {
     title:'Hot Path (n >= 10k, stable)', badge:'Inference', badgeColor:'#EF9A9A',
     inp:'Enriched query + Centaur backbone + per-tenant LoRA adapter (from L4).',
     out:'Fine-tuned prediction with tenant-specific behavioral structure encoded.',
-    rat:'Last resort, not default. Only when calibration plateaued, volume sufficient, update gate passes with human sign-off. LoRA adapter encodes residual between Centaur backbone and tenant-specific outcomes.'
+    rat:'Last resort, not default. Only when calibration plateaued, volume sufficient, and the update gate passes with human sign-off. The LoRA adapter encodes the residual between the Centaur backbone and tenant-specific outcomes.'
   },
   output: {
     title:'Predicted Distribution', badge:'Output', badgeColor:'#81C784',
     inp:'Outputs from cold / warm / hot paths.',
-    out:'Predicted probability distribution over outcome options. Simultaneously stamped to L2 Prediction Ledger.',
-    rat:'Every prediction logged to L2 before the outcome arrives — the non-negotiable invariant for honest backtesting. spec_hash in the ledger traces back to the exact pipeline config that produced this prediction.'
+    out:'Predicted probability distribution over outcome options. Simultaneously stamped to the L2 Prediction Ledger.',
+    rat:'Every prediction logged to L2 before the outcome arrives — the non-negotiable invariant for honest backtesting. spec_hash in the ledger traces back to the exact pipeline config (model + method) that produced this prediction.'
   },
   gate: {
     title:'Update Gate', badge:'Guardrail', badgeColor:'#FFD54F',
-    inp:'Challenger (new calibrator/adapter). Champion (current L4). L2 holdout outcomes.',
-    out:'PASS: promote challenger to L4 / Centaur. FAIL: keep champion; log challenger result.',
-    rat:'5-step gate: (1) shadow eval (>=1k preds / 2 weeks), (2) lift test (delta > Blum-Hardt eta), (3) reliability ceiling check (no fitting of finite-n noise), (4) drift check (PSI), (5) human sign-off for fine-tune ships. Same noise-floor principle as Part I LadderGate.'
+    inp:'Challenger (new method config OR new Centaur/LoRA checkpoint). Champion (current L4). L2 holdout outcomes.',
+    out:'PASS: promote challenger to L4 / ship Centaur. FAIL: keep champion; log the challenger result.',
+    rat:'One gate guards both branches. 5 steps: (1) shadow eval (>=1k preds / 2 weeks), (2) lift test (delta > Blum-Hardt eta), (3) reliability ceiling check (no fitting of finite-n noise), (4) drift check (PSI), (5) human sign-off for fine-tune ships. Same noise-floor principle as Part I LadderGate.'
+  }
+};
+
+// Page 3 — deployment building blocks: top-level build / buy / defer decisions
+var DEPLOY_DATA = {
+  'behavioral-etl': {
+    title:'Behavioral ETL', badge:'Build', badgeColor:'#FF8A65',
+    inp:'Raw transaction logs and event streams (revealed behavior).',
+    out:'Canonical behavioral records, deconfounded and provenance-tagged.',
+    rat:'Build, not buy — it is small and domain-specific. The only non-trivial part is deconfounding offer context, which is our IP. No vendor does this for us.'
+  },
+  'survey-bridge': {
+    title:'Survey Bridge', badge:'Build', badgeColor:'#CE93D8',
+    inp:'Aggregate survey response distributions.',
+    out:'Sampled per-agent pseudo-events in the canonical schema.',
+    rat:'Build. Turns stated preferences into per-individual records so surveys and behavior share one format. The sampling model is a research choice we want to version and control, not outsource.'
+  },
+  'experimental-etl': {
+    title:'Experimental ETL', badge:'Build', badgeColor:'#80DEEA',
+    inp:'Public datasets (Psych-101, SimBench, other published outcomes).',
+    out:'Domain-weighted canonical records for the Centaur cold-start.',
+    rat:'Build — one-off loaders per dataset. Trivial code; the value is curation and domain weighting, which is judgment, not infrastructure.'
+  },
+  'normalization-svc': {
+    title:'Normalization Service', badge:'Build · core', badgeColor:'#CE93D8',
+    inp:'Every source format — surveys, logs, experimental outcomes.',
+    out:'One canonical record schema {agent, context, choice, provenance, weight}.',
+    rat:'The load-bearing abstraction of the whole system. One schema is what lets the foundation model train on every source and keeps the method loop model-agnostic. Owned, versioned, tested — never a black box.'
+  },
+  'l1': {
+    title:'L1 · Raw Outcome Store', badge:'Buy infra (S3)', badgeColor:'#81C784',
+    inp:'All canonical records from every normalization path.',
+    out:'Append-only audit log; the Centaur training corpus.',
+    rat:'Buy the storage (S3 / Parquet), build the thin schema on top. Boring on purpose — append-only object storage scales forever and costs almost nothing. No database needed for an immutable log.'
+  },
+  'l2': {
+    title:'L2 · Prediction Ledger', badge:'Build (DuckDB)', badgeColor:'#EF9A9A',
+    inp:'Every prediction, stamped before its outcome arrives.',
+    out:'Paired (prediction, outcome) records — the honest backtest set.',
+    rat:'Build on an embedded engine (DuckDB, zero-ops). This pre-stamped ledger is the honest-evaluation primitive carried from Part I. Commodity engine, our invariant — the discipline is what matters, not the DB.'
+  },
+  'l3': {
+    title:'L3 · Segment Posteriors', badge:'Buy infra (Redis)', badgeColor:'#80DEEA',
+    inp:'L1 events aggregated on a schedule or volume trigger.',
+    out:'Per-segment empirical distributions; cold-path retrieval target.',
+    rat:'Buy the cache (Redis + S3), build the aggregation. A materialized view of L1 — cheap to recompute, so durability is not critical. Standard infra, no custom engineering.'
+  },
+  'l4': {
+    title:'L4 · Config / Adapter Cache', badge:'Build · versioned', badgeColor:'#FFD54F',
+    inp:'Gate-approved method configs and LoRA adapter weights.',
+    out:'The live artifacts both branches serve from (30-day rollback).',
+    rat:'Build a small versioned registry (JSON + safetensors). Anything that touches production must be auditable and reversible — that is our code, not a vendor feature. The one place both branches converge.'
+  },
+  'gpu-finetune': {
+    title:'GPU Fine-tune', badge:'Managed → rent later', badgeColor:'#80DEEA',
+    inp:'Cross-tenant anonymized corpus + current Centaur checkpoint.',
+    out:'A challenger Centaur / LoRA checkpoint, submitted to the gate.',
+    rat:'The core infra decision. Start with a managed fine-tuning service that also HOSTS the result (Together AI the candidate) — submit a corpus, get an OpenAI-compatible endpoint, zero GPU ops. Move to rented GPUs (vLLM on H100) only once volume makes the per-token economics and throughput worth the operational overhead. Open question: low-level training stacks like Tinker likely overshoot our modest LoRA needs.'
+  },
+  'centaur-serving': {
+    title:'Centaur Serving', badge:'Buy → self-host later', badgeColor:'#80DEEA',
+    inp:'Prediction requests + the active per-tenant adapter.',
+    out:'Behavioral prior for the warm and hot inference paths.',
+    rat:'Buy first: serve through OpenRouter or the fine-tune host’s OpenAI-compatible API — the same single-key pattern Part I already uses, so swapping models is a string change. Self-host (vLLM) only past ~10k preds/day, when the API premium exceeds the cost of running our own box.'
+  },
+  'search-runner': {
+    title:'Search Runner', badge:'Build', badgeColor:'#FFD54F',
+    inp:'Current champion config + a pre-registered lever.',
+    out:'Scored candidate configs recorded in a Ledger DAG.',
+    rat:'Build — this is Part I’s search loop, productionized. We already own the primitives (spec-hashing, manifests, ledger). No experiment-tracker vendor encodes our leakage discipline, so it stays in-house.'
+  },
+  'eval-harness': {
+    title:'Eval Harness', badge:'Build · own it', badgeColor:'#FFD54F',
+    inp:'Candidate config + a held-out slice of the L2 ledger.',
+    out:'Lift vs champion with a bootstrap CI, Ladder-gated.',
+    rat:'Build our own eval + experiment store. The primitives exist from Part I — LadderGate, bootstrap CI, pre-stamped holdout. The discipline (no peeking, noise-floor gating) is the differentiator; a generic eval SaaS would dilute it. Cheap to own, expensive to get wrong.'
+  },
+  'config-registry': {
+    title:'Config Registry', badge:'Build', badgeColor:'#FFD54F',
+    inp:'Gate-passed method configs.',
+    out:'Versioned, per-tenant configs feeding L4 (30-day rollback).',
+    rat:'Build — a small versioned store. Reversibility and per-tenant isolation are hard requirements, not features we would shop for.'
+  },
+  'prediction-api': {
+    title:'Prediction API', badge:'Build · thin', badgeColor:'#81C784',
+    inp:'Query + segment from the caller.',
+    out:'Predicted distribution over outcomes, OpenAI-compatible REST.',
+    rat:'Build a thin service and mirror the OpenAI-compatible shape so we are a drop-in. The intelligence is upstream (model + config) — the API is deliberately boring glue.'
+  },
+  'update-gate': {
+    title:'Update Gate', badge:'Build · core', badgeColor:'#FFD54F',
+    inp:'Challenger + champion + L2 holdout outcomes.',
+    out:'PASS → promote to L4 / ship; FAIL → keep champion.',
+    rat:'Build — one gate guards both branches (shadow → lift → ceiling → PSI → human sign-off). Same noise-floor principle as Part I’s LadderGate. This is governance logic and our responsibility; it is never outsourced.'
+  },
+  'drift-monitor': {
+    title:'Drift Monitor', badge:'Build + commodity alerting', badgeColor:'#FFD54F',
+    inp:'Live prediction-vs-outcome stream per tenant.',
+    out:'PSI drift signal; auto-rollback at +2σ in a trailing window.',
+    rat:'Build the metric and threshold; lean on commodity alerting for paging. Auto-rollback is a safety interlock we must own end-to-end — buying it would mean trusting someone else’s definition of “too far off.”'
+  },
+  'admin-dashboard': {
+    title:'Admin Dashboard', badge:'Buy / build-light', badgeColor:'#8b949e',
+    inp:'Versions, gate results, drift status.',
+    out:'Human view + manual rollback control.',
+    rat:'Buy or build-light — an off-the-shelf BI or internal-tool builder is fine. A read-mostly ops surface is not worth custom engineering early; spend the effort on the gate and the eval store instead.'
   }
 };
 
@@ -1027,6 +1257,23 @@ document.querySelectorAll('#svg-detail .node').forEach(function(el) {
     if (currentPage !== 2) return;
     var id = el.getAttribute('data-id');
     var d  = NODE_DATA[id];
+    if (!d) return;
+    pTitle.textContent       = d.title;
+    pBadge.textContent       = d.badge;
+    pBadge.style.background  = d.badgeColor + '22';
+    pBadge.style.color       = d.badgeColor;
+    pBadge.style.border      = '1px solid ' + d.badgeColor + '55';
+    pIn.textContent          = d.inp;
+    pOut.textContent         = d.out;
+    pRat.textContent         = d.rat;
+    panel.classList.add('visible');
+  });
+});
+document.querySelectorAll('#svg-deploy .box').forEach(function(el) {
+  el.addEventListener('click', function() {
+    if (currentPage !== 3) return;
+    var id = el.getAttribute('data-id');
+    var d  = DEPLOY_DATA[id];
     if (!d) return;
     pTitle.textContent       = d.title;
     pBadge.textContent       = d.badge;
