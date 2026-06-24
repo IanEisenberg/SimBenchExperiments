@@ -1,0 +1,26 @@
+{
+  "anti_flattening": {
+    "overall": 39.68,
+    "grouped": 42.69,
+    "pop": 36.39,
+    "required_Qs": 51.28
+  },
+  "cc_abstain": {
+    "overall": 40.93,
+    "grouped": 44.02,
+    "pop": 37.55,
+    "required_Qs": 55.29
+  },
+  "faithful": {
+    "overall": 35.21,
+    "grouped": 39.19,
+    "pop": 30.88,
+    "required_Qs": 51.48
+  },
+  "router_final": {
+    "overall": 40.73,
+    "grouped": 43.45,
+    "pop": 37.77,
+    "required_Qs": 54.14
+  }
+}

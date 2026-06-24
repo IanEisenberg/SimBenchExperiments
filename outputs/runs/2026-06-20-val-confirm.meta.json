@@ -1,0 +1,18 @@
+{
+  "run": "2026-06-20-val-confirm",
+  "model": "gemini-3.1-flash-lite",
+  "subset": "val",
+  "n": 3767,
+  "grouped": 1903,
+  "pop": 1864,
+  "usage": {
+    "calls": 7526,
+    "cache_hits": 8,
+    "prompt_tokens": 1476803,
+    "completion_tokens": 358601,
+    "total_tokens": 1835404,
+    "cost_usd": 0.9071022500000004
+  },
+  "elapsed_min": 26.54,
+  "finished_at": "2026-06-20T20:05:08"
+}

@@ -1,0 +1,16 @@
+{
+  "faithful@2.5-flash-lite": {
+    "overall": 19.27,
+    "grouped": 13.77,
+    "pop": 25.28,
+    "required_Qs": -4.51,
+    "split_avg_S": 19.52
+  },
+  "faithful@Qwen2.5-72B": {
+    "overall": 25.4,
+    "grouped": 20.97,
+    "pop": 29.1,
+    "required_Qs": -1.26,
+    "split_avg_S": 25.04
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "run": "2026-06-20-fulldev-confirm",
+  "model": "gemini-3.1-flash-lite",
+  "subset": "full dev",
+  "n": 6151,
+  "grouped": 2566,
+  "pop": 3585,
+  "usage": {
+    "calls": 15803,
+    "cache_hits": 2650,
+    "prompt_tokens": 3222378,
+    "completion_tokens": 735401,
+    "total_tokens": 3957779,
+    "cost_usd": 1.9086960000000015
+  },
+  "elapsed_min": 52.54,
+  "finished_at": "2026-06-20T19:18:33"
+}

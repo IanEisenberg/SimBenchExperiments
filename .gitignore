@@ -14,8 +14,7 @@ venv/
 # Data & cached model outputs (regenerable; can be large)
 data/raw/
 data/cache/
-outputs/
-runs/
+/runs/
 *.parquet
 
 # OS

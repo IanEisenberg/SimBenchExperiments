@@ -1,0 +1,18 @@
+{
+  "run": "2026-06-20-persona-mechanisms",
+  "model": "gemini-3.1-flash-lite",
+  "subsample_n": 600,
+  "grouped": 500,
+  "pop": 100,
+  "mc_n_individuals": 20,
+  "usage": {
+    "calls": 13153,
+    "cache_hits": 1247,
+    "prompt_tokens": 3010862,
+    "completion_tokens": 886414,
+    "total_tokens": 3897276,
+    "cost_usd": 2.082336499999998
+  },
+  "elapsed_min": 46.1,
+  "finished_at": "2026-06-20T17:10:11"
+}

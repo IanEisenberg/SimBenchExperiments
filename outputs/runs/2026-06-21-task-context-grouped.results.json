@@ -1,0 +1,53 @@
+{
+  "run": "2026-06-21-task-context-grouped",
+  "model": "gemini-3.1-flash-lite",
+  "cap": 120,
+  "per_dataset": [
+    {
+      "dataset": "ESS",
+      "n": 120,
+      "cc": 33.64,
+      "items": 46.52,
+      "delta": 12.88
+    },
+    {
+      "dataset": "OpinionQA",
+      "n": 120,
+      "cc": 64.39,
+      "items": 70.4,
+      "delta": 6.01
+    },
+    {
+      "dataset": "Afrobarometer",
+      "n": 120,
+      "cc": 54.13,
+      "items": 51.33,
+      "delta": -2.81
+    },
+    {
+      "dataset": "ISSP",
+      "n": 120,
+      "cc": 43.32,
+      "items": 43.55,
+      "delta": 0.23
+    },
+    {
+      "dataset": "LatinoBarometro",
+      "n": 120,
+      "cc": 4.38,
+      "items": -0.06,
+      "delta": -4.44
+    }
+  ],
+  "pooled": {
+    "cc": 39.97,
+    "items": 42.35,
+    "delta": 2.37,
+    "delta_ci": [
+      0.77,
+      3.96
+    ],
+    "wins": "3/5"
+  },
+  "secs": 58.3
+}
