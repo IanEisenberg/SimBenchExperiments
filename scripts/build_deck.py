@@ -331,8 +331,8 @@ SLIDES.append(section(
     f'<div class="takeaway">No simulation, no chain-of-thought, no post-hoc calibration. Three principled moves — together the val-confirmed final system.</div>'
     f'''<div style="display:flex;gap:30px;margin-top:42px;flex:1;align-items:stretch;">
       {survivor("Distributional framing","Fixes over-concentration — keeps minority mass instead of collapsing to the mode.","+4.26 test grouped · val ✓")}
-      {survivor("Calibrated-commitment prompt","Fixes <i>location</i> — gets the dominant option right, in one call.","+1.8 grouped dev · shrinks to within val noise")}
-      {survivor("Abstention","Stays honest — falls back to uniform on ~5% of items — the 3 datasets we land below uniform (Choices13k · Jester · OSPsychMACH).","the MVP — +3.26 pop val · val ✓")}
+      {survivor("Calibrated-commitment prompt","Fixes <i>location</i> — gets the dominant option right, in one call.","+5.8 split-avg test (with abstention) · val ✓")}
+      {survivor("Abstention","Knows when to abstain — falls back to uniform on the hardest ~5% of items instead of guessing.","the MVP — +3.26 pop val · val ✓")}
     </div>'''
     + '<div class="source">Source: Stages 05 / 10 / 11 / 12</div>',
     label="The turn",
@@ -401,7 +401,7 @@ SLIDES.append(section(
     f'''<table class="board">
       {row("Distributional framing (anti-flattening)", "won — +4.26 test grouped", GREEN)}
       {row("Base-model choice (gemini-3.1-flash-lite)", "won — dominant, +10 split-avg vs published baseline", GREEN)}
-      {row("Calibrated-commitment prompt (fixes location)", "won — cc + abstain +5.7 test", GREEN)}
+      {row("Calibrated-commitment prompt (fixes location)", "won — cc + abstain +5.8 split-avg test", GREEN)}
       {row("Abstention (uniform where we reliably fail)", "won — +3.26 pop val", GREEN)}
       {row("Task-kind routing", "won on val — <b>didn't transfer</b> (router = cc+abstain on test)", AMBER)}
       {row("Monte-Carlo personas · census electorate · voting · CoT · post-hoc calibration", "lose", GREY)}
@@ -418,11 +418,11 @@ SLIDES.append(section(
 SLIDES.append(figslide(
     13, "05 · The result",
     "A sealed test — and the paper reproduced.",
-    "On a test set untouched until the final run, the method lifts faithful by <b>+5.5</b> (every CI excludes 0). And our harness brackets the published SimBench baseline — the prediction code is faithful.",
+    "On a test set untouched until the final run, the method lifts faithful by <b>+5.8 split-avg</b> (CI excludes 0). And our harness brackets the published SimBench baseline — the prediction code is faithful.",
     "13_result",
-    "Source: Stage 17 — <code>TEST-final</code> + <code>TEST-faithful-models</code>",
+    "Source: Stage 17 — <code>TEST-lineage</code> + <code>TEST-final</code> + <code>TEST-faithful-models</code>",
     dark=True, label="The result", maxh=540,
-    notes="The payoff. On a sealed test set, holding the model fixed, our method adds five and a half points over faithful, and every confidence interval excludes zero — the wins are real, and the failures stayed dead. On the right, our faithful reproduction at Qwen brackets the paper's published number: the harness itself is faithful."))
+    notes="The payoff. On a sealed test set, holding the model fixed, our method adds about six points split-avg over faithful, and the confidence interval excludes zero — the wins are real, and the failures stayed dead. On the right, our faithful reproduction at Qwen brackets the paper's published number: the harness itself is faithful."))
 
 # --- 14 · Model vs method ---------------------------------------------------
 SLIDES.append(section(
@@ -479,16 +479,6 @@ SLIDES.append(figslide(
     "Source: <code>scrye.decompose</code> on <code>2026-06-21-decomp-final</code> (faithful vs final, dev) · task-kind map",
     label="By task", maxh=540,
     notes="Where does our method actually help? This is absolute SimBench S by task kind — zero is the uniform baseline, a hundred is perfect — for the faithful baseline versus our final system. Our method lifts every kind. The most dramatic is risky-choice, rescued from catastrophic, about minus thirty-eight, up to roughly uniform by abstention. Opinion surveys, the bulk of SimBench, are our strongest at around fifty. Knowledge was already fine and barely moves. These are absolute scores per kind, not a delta versus the paper."))
-
-# --- 17 · Limitations -------------------------------------------------------
-SLIDES.append(figslide(
-    17, "06 · Limits",
-    "The honest ceiling.",
-    "<b>Where our error goes</b> (right): split each prediction's total error (TVD) into <i>concentration</i> (wrong spread) + <i>location</i> (wrong options). Our method shaved <b>location</b> (0.08 → 0.06), but the bigger term — <b>concentration</b>, our spread is still ~0.06 too diffuse — is <b>unchanged</b>. That's the ceiling. <b>Also:</b> behavioral / value-action tasks stay hard; under-represented slices harder; single-model dependence. <b>Risks:</b> over-fit to SimBench templates; model gains may erode the method margin; leakage in any tool-using extension.",
-    "17_error_decomp",
-    "Source: <code>scrye.decompose</code> · notebook 04 (<code>decomp-final</code>) · Stages 09 / 16",
-    label="Limitations & risks", maxh=480,
-    notes="What we know is weak. Decomposing the error, concentration — wrong spread — dominates location: we're still too diffuse by about 0.06. Behavioral tasks and under-represented slices stay hard. And we lean on a single model. The risks: over-fitting to SimBench's templates, the method margin shrinking as base models improve, and leakage in any tool-using extension."))
 
 # --- 18 · Extensions + close ------------------------------------------------
 def ext(name, answers):

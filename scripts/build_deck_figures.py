@@ -342,20 +342,44 @@ def fig_headline_decomp():
 
 
 def fig_result():
-    tf = load("2026-06-21-TEST-final")["test"]["overall"]
+    # split-avg progression. Points are the reported system (cc + abstain, from
+    # TEST-lineage); CIs are combined from the tying final system's disjoint
+    # pop/grouped strata (TEST-final): split-avg = ½(pop+grouped), and because the
+    # strata are disjoint their bootstrap variances add → SE = ½·hypot(SE_g, SE_p).
+    lin = load("2026-06-21-TEST-lineage")
+    strat = load("2026-06-21-TEST-final")["test"]
     c = C(True)  # dark slide
+
+    def se(ci):
+        return (ci[1] - ci[0]) / (2 * 1.96)
+
+    def sa(d):
+        return (d["grouped"] + d["pop"]) / 2
+
+    def sa_ci(point, gci, pci):
+        h = 1.96 * 0.5 * np.hypot(se(gci), se(pci))
+        return [point - h, point + h]
+
+    fa = sa(lin["faithful"])         # faithful @ gemini-3.1 — split-avg ≈ 35.0
+    ou = sa(lin["cc_abstain"])       # our system (cc + abstain) — split-avg ≈ 40.8
+    fa_ci = sa_ci(fa, strat["grouped"]["faithful_ci"], strat["pop"]["faithful_ci"])
+    ou_ci = sa_ci(ou, strat["grouped"]["final_ci"], strat["pop"]["final_ci"])
+    delta = ou - fa
+    dh = 1.96 * 0.5 * np.hypot(se(strat["grouped"]["delta_ci"]), se(strat["pop"]["delta_ci"]))
+    d_ci = [delta - dh, delta + dh]
+
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11.6, 4.4), gridspec_kw=dict(width_ratios=[1.15, 1]))
     # left: progression with CIs
-    pts = [("faithful\n@ 3.1", tf["faithful"], tf["faithful_ci"], c["sec"]),
-           ("our system", tf["final"], tf["final_ci"], c["green"])]
+    pts = [("faithful\n@ 3.1", fa, fa_ci, c["sec"]),
+           ("our system", ou, ou_ci, c["green"])]
     x = np.arange(len(pts))
     for i, (lab, m, ci, col) in enumerate(pts):
         ax.bar(i, m, 0.5, color=col)
         ax.plot([i, i], ci, color=c["ink"], lw=1.8)
         ax.text(i, m + 1.0, f"{m:.1f}", ha="center", color=c["ink"], fontsize=13, fontweight="medium")
     ax.set_xticks(x); ax.set_xticklabels([p[0] for p in pts])
-    ax.set_ylabel("overall SimBench S")
-    ax.set_title(f"Sealed test:  +{tf['delta']:.1f}   [{tf['delta_ci'][0]:.1f}, {tf['delta_ci'][1]:.1f}]",
+    ax.set_ylabel("split-avg SimBench S")
+    ax.set_title(f"Sealed test:  +{delta:.1f}   [{d_ci[0]:.1f}, {d_ci[1]:.1f}]",
                  fontsize=14, color=c["green"])
     _apply(ax, c)
     # right: paper reproduction number line
