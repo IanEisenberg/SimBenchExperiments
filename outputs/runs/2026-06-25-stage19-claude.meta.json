@@ -1,0 +1,55 @@
+{
+  "models": [
+    "gemini-3.1-flash-lite",
+    "claude-sonnet-4.5",
+    "claude-sonnet-4.6"
+  ],
+  "eval_n": 3000,
+  "fit_n": 2000,
+  "eval_basis": "stratified dev subsample (seed=0)",
+  "fit_basis": "stratified val subsample (seed=0)",
+  "paper_best_single_model": 40.8,
+  "per_model": {
+    "gemini-3.1-flash-lite": {
+      "abstain_datasets": [
+        "Choices13k",
+        "MoralMachine",
+        "OSPsychMACH"
+      ],
+      "delta_faith_to_ccabs": {
+        "delta": 7.24,
+        "d_lo": 5.24,
+        "d_hi": 9.3,
+        "n": 2306
+      }
+    },
+    "claude-sonnet-4.5": {
+      "abstain_datasets": [
+        "Choices13k",
+        "Jester",
+        "MoralMachine",
+        "OSPsychMACH"
+      ],
+      "delta_faith_to_ccabs": {
+        "delta": 0.93,
+        "d_lo": -0.73,
+        "d_hi": 2.75,
+        "n": 2306
+      }
+    },
+    "claude-sonnet-4.6": {
+      "abstain_datasets": [
+        "Jester",
+        "MoralMachine",
+        "OSPsychMACH"
+      ],
+      "delta_faith_to_ccabs": {
+        "delta": NaN,
+        "d_lo": NaN,
+        "d_hi": NaN,
+        "n": 0
+      }
+    }
+  },
+  "elapsed_sec": 2370.0
+}

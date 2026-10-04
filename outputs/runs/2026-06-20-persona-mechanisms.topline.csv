@@ -1,0 +1,6 @@
+system,pooled,grouped,grouped_ci,pop,frac_below_uniform,cf_alignment
+faithful,37.714,41.488,"[37.3, 45.58]",18.84,0.19,0.413
+anti_flattening,40.667,44.506,"[41.03, 48.0]",21.473,0.157,0.441
+contextualized,40.668,44.953,"[41.06, 48.78]",19.243,0.157,0.481
+diversity_elicitation,38.777,41.848,"[37.84, 45.86]",23.421,0.167,0.459
+monte_carlo,25.238,29.283,"[25.05, 33.19]",5.009,0.267,0.317

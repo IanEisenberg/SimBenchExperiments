@@ -1,0 +1,16 @@
+{
+  "abstain_datasets": [
+    "Choices13k",
+    "MoralMachine",
+    "OSPsychMACH"
+  ],
+  "deltas": {
+    "grouped": 0.66,
+    "pop": 3.26,
+    "pooled": 1.95,
+    "noise_floor": 1.62
+  },
+  "confirmed": true,
+  "strong": false,
+  "elapsed_sec": 1001.8
+}

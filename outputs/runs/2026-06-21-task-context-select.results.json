@@ -1,0 +1,48 @@
+{
+  "run": "2026-06-21-task-context-select",
+  "per_dataset": {
+    "ESS": {
+      "cc": 33.64,
+      "items": 46.52
+    },
+    "OpinionQA": {
+      "cc": 64.39,
+      "items": 70.4
+    },
+    "Afrobarometer": {
+      "cc": 54.13,
+      "items": 51.33
+    },
+    "ISSP": {
+      "cc": 43.32,
+      "items": 43.55
+    },
+    "LatinoBarometro": {
+      "cc": 4.38,
+      "items": -0.06
+    }
+  },
+  "fold1": {
+    "ESS": "items",
+    "OpinionQA": "items",
+    "Afrobarometer": "cc",
+    "ISSP": "items",
+    "LatinoBarometro": "cc"
+  },
+  "fold2": {
+    "ESS": "items",
+    "OpinionQA": "items",
+    "Afrobarometer": "cc",
+    "ISSP": "cc",
+    "LatinoBarometro": "cc"
+  },
+  "eval_cc": 39.97,
+  "eval_items": 42.35,
+  "eval_selective": 43.68,
+  "selective_delta": 3.71,
+  "selective_delta_ci": [
+    2.71,
+    4.75
+  ],
+  "secs": 1.6
+}

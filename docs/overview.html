@@ -1,0 +1,2108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimBench Experiments — Project Overview</title>
+<style>
+/* ── reset & tokens ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:     #0a0d14;
+  --bg2:    #111620;
+  --bg3:    #161d2e;
+  --bg4:    #1b2336;
+  --border: #252e42;
+  --border2:#2e3a52;
+  --text:   #e2e8f4;
+  --muted:  #7b8db5;
+  --faint:  #3d4f72;
+
+  --indigo:  #818cf8;
+  --indigo2: #6366f1;
+  --purple:  #c084fc;
+  --cyan:    #38bdf8;
+  --green:   #4ade80;
+  --amber:   #fbbf24;
+  --red:     #f87171;
+  --pink:    #f472b6;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+code {
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.875em;
+  color: var(--cyan);
+  background: #38bdf810;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── keyframes ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 0 #6366f100; }
+  50%       { box-shadow: 0 0 20px 4px #6366f125; }
+}
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ── header ── */
+header {
+  background: linear-gradient(180deg, #0a0d14 0%, #0d1220 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 2rem 0;
+  position: sticky; top: 0; z-index: 200;
+  backdrop-filter: blur(12px);
+}
+
+.header-row {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.wordmark {
+  font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--indigo), var(--purple));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-divider { width: 1px; height: 20px; background: var(--border); }
+
+.header-sub { font-size: 0.8rem; color: var(--muted); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid;
+}
+.pill-indigo { background: #6366f108; border-color: #6366f130; color: var(--indigo); }
+.pill-cyan   { background: #38bdf808; border-color: #38bdf830; color: var(--cyan); }
+.pill-purple { background: #c084fc08; border-color: #c084fc30; color: var(--purple); }
+.pill-green  { background: #4ade8008; border-color: #4ade8030; color: var(--green); }
+.pill-amber  { background: #fbbf2408; border-color: #fbbf2430; color: var(--amber); }
+.pill-red    { background: #f8717108; border-color: #f8717130; color: var(--red); }
+
+/* ── tabs ── */
+.tabs { display: flex; gap: 0; }
+
+.tab-btn {
+  padding: 0.65rem 1.25rem;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); font-size: 0.85rem; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--indigo); border-bottom-color: var(--indigo); }
+.tab-btn .tab-num {
+  font-size: 0.65rem; font-weight: 700;
+  background: var(--bg3); border-radius: 4px;
+  padding: 1px 5px; color: var(--muted);
+  transition: background 0.2s, color 0.2s;
+}
+.tab-btn.active .tab-num { background: #6366f120; color: var(--indigo); }
+
+/* ── pages ── */
+.page { display: none; }
+.page.active { display: block; animation: fadeIn 0.3s var(--ease-out); }
+
+/* ── layout ── */
+.content {
+  max-width: 1080px; margin: 0 auto;
+  padding: 2.5rem 2rem 4rem;
+}
+
+/* ── hero section ── */
+.hero {
+  margin-bottom: 3rem;
+  padding: 2rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+  animation: fadeUp 0.5s var(--ease-out) both;
+}
+.hero-eyebrow {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--indigo);
+  margin-bottom: 0.75rem;
+}
+.hero-title {
+  font-size: 1.75rem; font-weight: 800; line-height: 1.2;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--text) 30%, var(--muted));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+.hero-body {
+  font-size: 0.95rem; color: var(--muted); max-width: 680px;
+  line-height: 1.8;
+}
+.hero-body strong { color: var(--text); }
+
+/* ── section ── */
+.section { margin-bottom: 3rem; }
+
+.section-header {
+  display: flex; align-items: baseline; gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+.section-title {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.section-title-line { flex: 1; height: 1px; background: var(--border); }
+
+.section-lead {
+  color: var(--muted); font-size: 0.875rem; line-height: 1.75;
+  margin-bottom: 1.5rem; max-width: 680px;
+}
+.section-lead strong { color: var(--text); font-weight: 600; }
+
+/* ── stat row ── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.stat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem 1.1rem;
+  transition: border-color 0.25s, transform 0.25s;
+}
+.stat-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.stat-val {
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--indigo), var(--purple));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.3rem;
+}
+.stat-label { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+
+/* ── evidence matrix ── */
+.matrix-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  min-width: 560px;
+}
+.matrix th {
+  background: var(--bg3); padding: 0.7rem 1rem;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted);
+  text-align: left; border-bottom: 1px solid var(--border);
+}
+.matrix td { padding: 1rem 1.1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.matrix tr:last-child td { border-bottom: none; }
+.matrix .row-head {
+  background: var(--bg3); font-weight: 700; font-size: 0.78rem; color: var(--text);
+  border-right: 1px solid var(--border);
+}
+.cell-solved { border-left: 3px solid var(--green); background: #4ade8006; }
+.cell-hard   { border-left: 3px solid var(--amber); background: #fbbf2406; }
+.cell-empty  { border-left: 3px solid var(--red);   background: #f8717108; }
+
+.cell-score { font-weight: 800; font-size: 1.1rem; display: block; margin-bottom: 2px; }
+.cell-note  { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+.c-green { color: var(--green); }
+.c-amber { color: var(--amber); }
+.c-red   { color: var(--red); }
+.c-purple { color: var(--purple); }
+.c-indigo { color: var(--indigo); }
+.c-cyan   { color: var(--cyan); }
+
+/* ── finding cards ── */
+.findings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 1rem;
+}
+
+.finding-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem;
+  position: relative; overflow: hidden;
+  transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+  cursor: default;
+}
+.finding-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  transition: opacity 0.3s;
+}
+.finding-card.f-purple::before { background: linear-gradient(90deg, var(--purple), var(--indigo)); }
+.finding-card.f-red::before    { background: linear-gradient(90deg, var(--red), var(--pink)); }
+.finding-card.f-amber::before  { background: linear-gradient(90deg, var(--amber), var(--green)); }
+.finding-card.f-green::before  { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+
+.finding-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px #00000040;
+}
+
+.finding-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+.finding-title {
+  font-size: 0.875rem; font-weight: 700; color: var(--text);
+  margin-bottom: 0.5rem; line-height: 1.3;
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+}
+.finding-body { font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+.finding-body strong { color: var(--text); }
+.finding-highlight {
+  display: inline-flex; align-items: center;
+  font-size: 0.78rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 6px;
+  margin-top: 0.6rem;
+}
+
+/* ── hypothesis accordion ── */
+.hyp-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.hyp {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  transition: border-color 0.25s;
+}
+.hyp:hover { border-color: var(--border2); }
+.hyp.open  { border-color: #6366f140; }
+
+.hyp-trigger {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.9rem 1.1rem; cursor: pointer;
+  user-select: none;
+}
+.hyp-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--indigo2), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 800; color: white; flex-shrink: 0;
+}
+.hyp-title { font-size: 0.85rem; font-weight: 600; flex: 1; }
+.hyp-tag { flex-shrink: 0; }
+.hyp-arrow {
+  color: var(--muted); flex-shrink: 0; font-size: 0.75rem;
+  transition: transform 0.3s var(--ease-out);
+}
+.hyp.open .hyp-arrow { transform: rotate(90deg); }
+
+.hyp-body {
+  padding: 0 1.1rem;
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.4s var(--ease-out), padding 0.3s;
+  font-size: 0.82rem; color: var(--muted); line-height: 1.75;
+}
+.hyp-body strong { color: var(--text); }
+.hyp.open .hyp-body { max-height: 300px; padding: 0 1.1rem 1rem; }
+.hyp-body-inner { padding-top: 0.75rem; border-top: 1px solid var(--border); }
+
+/* ── open questions ── */
+.oq-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.oq-item {
+  display: flex; gap: 0.9rem; align-items: flex-start;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.9rem 1.1rem;
+  font-size: 0.82rem;
+  transition: border-color 0.2s;
+}
+.oq-item:hover { border-color: var(--border2); }
+.oq-status { flex-shrink: 0; margin-top: 1px; }
+.oq-text { color: var(--muted); line-height: 1.65; }
+.oq-text strong { color: var(--text); }
+
+/* ── split visual ── */
+.split-visual {
+  border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+  background: var(--bg2); margin-bottom: 1.25rem;
+}
+.split-bar {
+  display: flex; height: 56px; position: relative;
+}
+.split-seg {
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; font-weight: 700; line-height: 1.2;
+  transition: flex 0.5s var(--ease-out);
+  cursor: default; position: relative;
+}
+.split-seg:not(:last-child)::after {
+  content: ''; position: absolute; right: 0; top: 8px; bottom: 8px;
+  width: 1px; background: #ffffff20;
+}
+.seg-name { font-size: 0.82rem; }
+.seg-pct  { font-size: 0.68rem; opacity: 0.8; }
+
+.seg-dev  { flex: 50; background: linear-gradient(135deg, #4f46e580, #6366f190); }
+.seg-val  { flex: 25; background: linear-gradient(135deg, #7c3aed70, #9333ea80); }
+.seg-test { flex: 25; background: linear-gradient(135deg, #be185d60, #ec489970); }
+
+.split-roles {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+}
+.split-role { padding: 0.9rem 1.1rem; }
+.split-role:not(:last-child) { border-right: 1px solid var(--border); }
+.split-role-name { font-weight: 700; font-size: 0.8rem; margin-bottom: 0.3rem; }
+.split-role-desc { font-size: 0.76rem; color: var(--muted); line-height: 1.55; }
+
+/* ── search loop diagram ── */
+.flow-container {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.75rem;
+  overflow-x: auto;
+}
+.flow-svg { width: 100%; }
+
+/* ── levers table ── */
+.lever-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.lever-table th {
+  background: var(--bg3); padding: 0.55rem 0.9rem;
+  text-align: left; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.lever-table td {
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top; line-height: 1.55;
+}
+.lever-table tr:last-child td { border-bottom: none; }
+.lever-table tr { transition: background 0.15s; }
+.lever-table tr:hover td { background: #6366f108; }
+.lever-id { font-family: ui-monospace, monospace; color: var(--cyan); font-size: 0.78rem; }
+.lever-dir { color: var(--green); font-weight: 600; }
+
+/* ── formula box ── */
+.formula-box {
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 0.8rem 1.2rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9rem; color: var(--cyan);
+  display: inline-block;
+  margin: 0.5rem 0;
+}
+
+/* ── info box ── */
+.info-box {
+  background: #6366f108; border: 1px solid #6366f125;
+  border-radius: 8px; padding: 1rem 1.2rem;
+  font-size: 0.82rem; color: var(--muted); line-height: 1.75;
+}
+.info-box strong { color: var(--text); font-weight: 600; }
+
+.callout {
+  display: flex; gap: 0.75rem; align-items: flex-start;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem 1.2rem;
+  font-size: 0.82rem; color: var(--muted); line-height: 1.7;
+}
+.callout strong { color: var(--text); }
+.callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+/* ── metric cards ── */
+.metric-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.metric-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1.25rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.metric-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.metric-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text); }
+.metric-body  { font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+.metric-body strong { color: var(--text); }
+
+/* ══════════════════════════════════════════════════
+   ARCHITECTURE PAGE
+══════════════════════════════════════════════════ */
+
+/* data flow strip */
+.flow-strip {
+  display: flex; align-items: stretch; gap: 0;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+.flow-step {
+  flex: 1; padding: 1.1rem; position: relative;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.flow-step:last-child { border-right: none; }
+.flow-step:hover { background: var(--bg3); }
+.flow-step.hl { background: var(--bg3); }
+.flow-step-num {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 0.3rem;
+}
+.flow-step-name { font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 0.25rem; }
+.flow-step-sub  { font-size: 0.72rem; color: var(--muted); line-height: 1.45; }
+.flow-arrow {
+  position: absolute; right: -10px; top: 50%; transform: translateY(-50%);
+  z-index: 10; font-size: 0.9rem; color: var(--faint);
+}
+
+/* layer section */
+.arch-layer { margin-bottom: 1.75rem; }
+.arch-layer-label {
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 0.6rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.arch-layer-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.layer-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.module-row {
+  display: flex; gap: 0.6rem; flex-wrap: wrap;
+}
+.mod {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 0.75rem 0.9rem;
+  cursor: pointer; min-width: 130px; flex: 1; max-width: 200px;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s, background 0.2s;
+  position: relative;
+}
+.mod:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px #00000040;
+}
+.mod.selected { border-color: var(--indigo2); background: #6366f110; box-shadow: 0 0 0 1px #6366f140; }
+.mod.highlighted { border-color: #6366f160; background: #6366f108; }
+.mod.dimmed { opacity: 0.35; }
+
+.mod-name { font-family: ui-monospace, monospace; font-size: 0.8rem; font-weight: 700; color: var(--cyan); margin-bottom: 0.3rem; }
+.mod-desc { font-size: 0.73rem; color: var(--muted); line-height: 1.45; }
+
+/* layer colors */
+.layer-foundation .mod:hover, .layer-foundation .mod.selected { border-color: #38bdf860; }
+.layer-foundation .mod.selected { background: #38bdf808; box-shadow: 0 0 0 1px #38bdf440; }
+.layer-foundation .mod.highlighted { border-color: #38bdf840; background: #38bdf806; }
+
+.layer-pipeline .mod:hover, .layer-pipeline .mod.selected { border-color: #818cf860; }
+.layer-pipeline .mod.selected { background: #818cf808; box-shadow: 0 0 0 1px #818cf840; }
+.layer-pipeline .mod.highlighted { border-color: #818cf840; background: #818cf806; }
+
+.layer-search .mod:hover, .layer-search .mod.selected { border-color: #c084fc60; }
+.layer-search .mod.selected { background: #c084fc08; box-shadow: 0 0 0 1px #c084fc40; }
+.layer-search .mod.highlighted { border-color: #c084fc40; background: #c084fc06; }
+
+.layer-output .mod:hover, .layer-output .mod.selected { border-color: #4ade8060; }
+.layer-output .mod.selected { background: #4ade8008; box-shadow: 0 0 0 1px #4ade8040; }
+.layer-output .mod.highlighted { border-color: #4ade8040; background: #4ade8006; }
+
+/* detail panel */
+.detail-panel {
+  background: var(--bg2); border: 1px solid var(--indigo2);
+  border-radius: 12px; padding: 1.25rem;
+  margin-top: 1rem;
+  animation: fadeUp 0.3s var(--ease-out) both;
+  display: none;
+}
+.detail-panel.visible { display: block; }
+
+.detail-header {
+  display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.9rem;
+}
+.detail-name { font-family: ui-monospace, monospace; font-size: 1rem; font-weight: 700; color: var(--cyan); }
+.detail-layer-badge { }
+.detail-body { font-size: 0.82rem; color: var(--muted); line-height: 1.75; margin-bottom: 1rem; }
+.detail-body strong { color: var(--text); }
+
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.detail-section-title {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem;
+}
+.dep-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.dep-chip {
+  font-family: ui-monospace, monospace; font-size: 0.72rem;
+  padding: 2px 8px; border-radius: 5px; border: 1px solid;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.dep-chip:hover { opacity: 0.7; }
+.dep-chip-imports { background: #38bdf408; border-color: #38bdf430; color: var(--cyan); }
+.dep-chip-used-by { background: #c084fc08; border-color: #c084fc30; color: var(--purple); }
+
+/* close btn */
+.detail-close {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 1rem; line-height: 1;
+  transition: color 0.15s;
+}
+.detail-close:hover { color: var(--text); }
+
+/* legend strip */
+.arch-legend {
+  display: flex; gap: 1.5rem; flex-wrap: wrap;
+  font-size: 0.75rem; color: var(--muted);
+  padding: 0.75rem 0; border-top: 1px solid var(--border); margin-top: 1rem;
+  align-items: center;
+}
+.legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+/* ── stagger animation util ── */
+.stagger > * { opacity: 0; animation: fadeUp 0.4s var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger > *:nth-child(6) { animation-delay: 0.30s; }
+
+/* ── responsive ── */
+@media (max-width: 640px) {
+  .header-row { flex-wrap: wrap; }
+  .hero-title { font-size: 1.3rem; }
+  .flow-strip { flex-direction: column; }
+  .flow-arrow { display: none; }
+  .flow-step { border-right: none; border-bottom: 1px solid var(--border); }
+  .split-roles { grid-template-columns: 1fr; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .replay-body { grid-template-columns: 1fr; }
+  .spec-panel { border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+/* ── experiment replay ── */
+.replay-wrap {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.replay-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.replay-title { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.replay-btn {
+  padding: 0.38rem 1rem; border-radius: 7px; font-size: 0.8rem; font-weight: 700;
+  border: 1px solid var(--indigo2); background: #6366f120; color: var(--indigo);
+  cursor: pointer; transition: all 0.2s;
+}
+.replay-btn:hover:not(:disabled) { background: #6366f135; }
+.replay-btn:disabled { opacity: 0.45; cursor: default; }
+.replay-btn-ghost { background: none; border-color: var(--border); color: var(--muted); }
+.replay-btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+.replay-body { display: grid; grid-template-columns: 220px 1fr; min-height: 240px; }
+.spec-panel { border-right: 1px solid var(--border); padding: 1rem 1.1rem; background: var(--bg3); }
+.spec-panel-label {
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 0.8rem;
+}
+.spec-field { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0.65rem; }
+.spec-key { font-size: 0.68rem; color: var(--faint); }
+.spec-val { font-family: ui-monospace, monospace; font-size: 0.78rem; color: var(--cyan); }
+.spec-cal-list { display: flex; flex-direction: column; gap: 3px; margin-top: 3px; }
+.spec-cal-item {
+  font-family: ui-monospace, monospace; font-size: 0.7rem;
+  padding: 2px 7px; border-radius: 5px;
+  background: #6366f115; color: var(--indigo); border: 1px solid #6366f130;
+  animation: rowSlideIn 0.3s ease both;
+}
+.spec-score-row, .spec-k-row { display: flex; flex-direction: column; gap: 2px; margin-top: 0.65rem; }
+.spec-score {
+  font-size: 1.05rem; font-weight: 800; font-family: ui-monospace, monospace;
+  color: var(--muted); transition: color 0.4s;
+}
+.spec-score.has-val { color: var(--green); }
+@keyframes scoreFlash {
+  0%   { color: var(--amber); }
+  100% { color: var(--green); }
+}
+.spec-k { font-size: 0.88rem; font-weight: 700; font-family: ui-monospace, monospace; color: var(--purple); }
+
+.run-log { padding: 0.7rem 0.75rem; display: flex; flex-direction: column; }
+.run-log-header {
+  display: flex; align-items: center;
+  padding: 0.35rem 0.6rem 0.5rem;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--faint);
+  border-bottom: 1px solid var(--border); margin-bottom: 0.35rem;
+}
+.run-log-empty { color: var(--faint); font-size: 0.8rem; padding: 0.75rem 0.6rem; font-style: italic; }
+
+.log-row {
+  display: flex; align-items: center;
+  padding: 0.5rem 0.6rem; border-radius: 6px;
+  font-size: 0.8rem; border-left: 3px solid transparent;
+  margin-bottom: 3px;
+  animation: rowSlideIn 0.3s ease both;
+}
+@keyframes rowSlideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: none; }
+}
+.log-row.log-accepted { border-left-color: var(--green); background: #4ade8008; }
+.log-row.log-rejected { border-left-color: var(--red);   background: #f8717108; }
+.log-row.log-skipped  { border-left-color: var(--faint); opacity: 0.6; }
+.log-row.log-pending  { border-left-color: var(--border2); }
+
+.log-num  { flex: 0 0 22px; font-size: 0.7rem; color: var(--faint); font-weight: 700; }
+.log-lever { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.log-lever-name { font-family: ui-monospace, monospace; font-size: 0.74rem; color: var(--cyan); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-params { font-size: 0.67rem; color: var(--muted); }
+.log-dev  { flex: 0 0 56px; text-align: center; font-family: ui-monospace, monospace; font-size: 0.76rem; }
+.log-val  { flex: 0 0 56px; text-align: center; font-family: ui-monospace, monospace; font-size: 0.76rem; color: var(--muted); }
+.log-result { flex: 0 0 62px; text-align: right; }
+
+.badge-acc { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 5px; background: #4ade8018; color: var(--green); border: 1px solid #4ade8035; }
+.badge-rej { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 5px; background: #f8717118; color: var(--red); border: 1px solid #f8717135; }
+.badge-skp { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 5px; background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+
+.search-result {
+  border-top: 1px solid var(--border); padding: 1rem 1.25rem;
+  animation: fadeUp 0.4s ease both;
+}
+.result-line { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.result-icon { font-size: 1.1rem; flex-shrink: 0; }
+.result-spec { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.4rem; padding-left: 1.7rem; }
+.result-score { font-size: 0.85rem; margin-bottom: 0.4rem; padding-left: 1.7rem; }
+.result-footer { font-size: 0.78rem; color: var(--muted); padding-left: 1.7rem; border-top: 1px solid var(--border); padding-top: 0.6rem; margin-top: 0.6rem; }
+</style>
+</head>
+<body>
+
+<!-- ── header ── -->
+<header>
+  <div class="header-row">
+    <span class="wordmark">SimBench Experiments</span>
+    <div class="header-divider"></div>
+    <span class="header-sub">SimBench Survey-Distribution Prediction</span>
+    <div style="margin-left:auto;display:flex;gap:0.4rem;flex-wrap:wrap;">
+      <span class="pill pill-cyan">SimBench</span>
+      <span class="pill pill-indigo">ICLR 2026</span>
+      <span class="pill pill-purple">Distributional</span>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="showPage('science',this)">
+      <span class="tab-num">01</span> Scientific Overview
+    </button>
+    <button class="tab-btn" onclick="showPage('experiment',this)">
+      <span class="tab-num">02</span> Experiment Design
+    </button>
+    <button class="tab-btn" onclick="showPage('architecture',this)">
+      <span class="tab-num">03</span> Architecture
+    </button>
+  </nav>
+</header>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PAGE 1 — SCIENTIFIC OVERVIEW
+══════════════════════════════════════════════════════════════════════ -->
+<div id="page-science" class="page active">
+<div class="content">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Scientific Overview</div>
+    <div class="hero-title">Can LLMs predict how people respond — not just what they say?</div>
+    <div class="hero-body">
+      <strong>SimBench</strong> is the first large-scale benchmark for group-level human behavior simulation.
+      The task isn't to answer a survey question correctly — it's to predict the full
+      <em>distribution</em> of how a demographic group responds. As of 2026, the best model closes only 40% of the gap to
+      ground truth. But the failures follow a clear pattern, and each pattern is something we can fix.
+      <br><br>
+      This project is a personal exploration of the LLM human-simulation literature, using SimBench as its
+      testbed: it draws on that literature to make principled bets about what interventions will move the
+      score — and why.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">SimBench at a Glance</div>
+      <div class="section-title-line"></div>
+    </div>
+    <div class="stat-row stagger">
+      <div class="stat-card"><div class="stat-val">20</div><div class="stat-label">harmonized survey datasets</div></div>
+      <div class="stat-card"><div class="stat-val">130+</div><div class="stat-label">countries represented</div></div>
+      <div class="stat-card"><div class="stat-val">45</div><div class="stat-label">LLMs tested (0.5B–405B)</div></div>
+      <div class="stat-card"><div class="stat-val">40.8</div><div class="stat-label">best published score (Claude 3.7 Sonnet out of 100)</div></div>
+      <div class="stat-card"><div class="stat-val">10/45</div><div class="stat-label">models score <em>below</em> random baseline</div></div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-icon">📐</span>
+      <div>
+        <strong>How the score works:</strong> SimBench score
+        <span class="formula-box" style="font-size:0.82rem;display:inline;padding:2px 8px;vertical-align:middle;">S = 100 · (1 − TVD(P,Q) / TVD(P,U))</span>
+        — where P is the human distribution, Q is the model's prediction, and U is uniform random.
+        <strong>S = 100</strong> means perfect; <strong>S = 0</strong> means no better than guessing uniformly;
+        <strong>S &lt; 0</strong> means the model is actively miscalibrated.
+        The key insight: this is a <em>distributional</em> metric — it rewards reproducing the full spread of human
+        responses, not just picking the modal answer.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Where the Field Has Results — and Where It Doesn't</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Three years of research (2023–2026) tells a consistent story: <strong>predicting what people say is nearly solved;
+      predicting what people do remains wide open.</strong> This table maps the evidence.
+      The red cell — behavioral prediction from accumulated data — is the field's only untested cell, and the most interesting open question.
+    </p>
+
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th style="width:180px;">Data Source</th>
+            <th>Stated Attitudes &amp; Preferences</th>
+            <th>Behavior Under Stakes (revealed)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-head">Bespoke survey instruments</td>
+            <td class="cell-solved">
+              <span class="cell-score c-green">~0.83 norm. accuracy</span>
+              <span class="cell-note">Park et al. 2024 — person-specific agents from 2hr interviews reproduce GSS responses.
+              Three independent labs converge. <strong>Considered solved.</strong></span>
+            </td>
+            <td class="cell-hard">
+              <span class="cell-score c-amber">~0.66, std=2.83, n.s.</span>
+              <span class="cell-note">Same Park 2024 study — economic games (stakes). Sign and rank-order hold (r=0.91–0.99)
+              but magnitude inflates badly. SimBench confirms this is structural.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="row-head">Pre-existing panel data</td>
+            <td class="cell-solved">
+              <span class="cell-score c-green">~0.79, r=0.59</span>
+              <span class="cell-note">Kinzinger &amp; Hartmann 2026 — cheap socio-economic panel data matches bespoke results.
+              Volume beats clever item selection (p≈0.32 for entropy-ranked selection vs. random).</span>
+            </td>
+            <td class="cell-empty">
+              <span class="cell-score c-red">Untested by anyone</span>
+              <span class="cell-note">No paper tests this cell. The question: does accumulated behavioral trace data
+              let LLMs predict what people <em>do</em> — not just what they say?
+              <strong>The open question.</strong></span>
+            </td>
+          </tr>
+          <tr>
+            <td class="row-head">Benchmark (SimBench)</td>
+            <td class="cell-solved">
+              <span class="cell-score c-green">Best regime</span>
+              <span class="cell-note">OpinionQA, Afrobarometer top the leaderboard. Opinion questions
+              are where frontier models perform closest to humans.</span>
+            </td>
+            <td class="cell-hard">
+              <span class="cell-score c-amber">Hardest regime</span>
+              <span class="cell-note">Choices13k (risky choices), MoralMachine (moral dilemmas) are
+              consistently the lowest-scoring datasets. Confirms the value–action gap at benchmark scale.</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Three Structural Failure Modes — and What They Mean for Us</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      SimBench's headline number (40.8/100) would be discouraging if the errors were random.
+      They aren't. The same failure patterns appear across models, datasets, and research groups —
+      which means they're diagnosable, and potentially fixable.
+    </p>
+
+    <div class="findings-grid stagger">
+      <div class="finding-card f-purple">
+        <div class="finding-icon">⚖️</div>
+        <div class="finding-title">The Alignment–Simulation Tradeoff <span class="pill pill-purple" style="font-size:0.68rem;">r = −0.942</span></div>
+        <div class="finding-body">
+          The same training that makes a model helpful makes it a worse simulator. RLHF teaches models to
+          minimize <em>mode-seeking</em> KL — collapsing outputs toward the "best" single answer.
+          Pre-training minimizes <em>mass-covering</em> KL — covering all plausible human responses.
+          <br><br>
+          <strong>The effect:</strong> on consensus questions (low entropy), alignment helps up to +40 S-points.
+          But past response entropy ≈ 0.8, an aligned model is a <em>worse</em> simulator than its base model.
+          The same process that creates a polite, helpful assistant systematically destroys the diversity
+          of outputs needed to match real human heterogeneity.
+          <div class="finding-highlight" style="background:#c084fc10;color:var(--purple);border:1px solid #c084fc30;">
+            → Lever: base/merged models for high-entropy items
+          </div>
+        </div>
+      </div>
+
+      <div class="finding-card f-red">
+        <div class="finding-icon">🚫</div>
+        <div class="finding-title">Demographic Conditioning Backfires</div>
+        <div class="finding-body">
+          Adding a persona prompt — "You are from Finland, age 30–49, female" — should help the model
+          produce that group's responses. Instead, it consistently <em>hurts</em>. On SimBenchGrouped,
+          <strong>every tested demographic category shows negative ΔS</strong>:
+          religiosity/practice −9.91, political ideology −4.97, religion −4.83, gender −1.24.
+          <br><br>
+          Asking the model to "be" a group makes it caricature that group, collapsing within-group
+          diversity toward a stereotype. The finding is robust across all 45 models tested.
+          <div class="finding-highlight" style="background:#f8717110;color:var(--red);border:1px solid #f8717130;">
+            → Lever: delta-prediction, not persona embodiment
+          </div>
+        </div>
+      </div>
+
+      <div class="finding-card f-amber">
+        <div class="finding-icon">🧠</div>
+        <div class="finding-title">Reasoning Doesn't Help — Knowledge Does</div>
+        <div class="finding-body">
+          Simulation accuracy correlates strongly with <strong>world knowledge</strong> (MMLU-Pro r = 0.94, GPQA r = 0.86)
+          but barely with reasoning (AIME r = 0.48) or conversational skill (Chatbot Arena r = 0.71).
+          <br><br>
+          More tellingly, <strong>chain-of-thought hurts</strong>: o4-mini with more inference compute goes 27.77 → 28.99;
+          CoT degrades GPT-4.1 from 34.55 → 33.11. Human survey responses are heuristic and intuitive —
+          forcing deliberate reasoning on them is exactly wrong.
+          <div class="finding-highlight" style="background:#fbbf2410;color:var(--amber);border:1px solid #fbbf2430;">
+            → Implication: cache-and-route, don't deliberate
+          </div>
+        </div>
+      </div>
+
+      <div class="finding-card f-green">
+        <div class="finding-icon">📈</div>
+        <div class="finding-title">Fine-Tuning on Behavior Closes the Gap</div>
+        <div class="finding-body">
+          The constructive finding: <em>Beyond Believability</em> (arXiv:2503.20749) shows that
+          fine-tuning an LLM on real behavioral traces improves action-prediction accuracy
+          by <strong>~21–25%</strong> over prompt-only agents at matched scale.
+          <br><br>
+          This is the most constructive result in the literature. Distribution-preserving post-training
+          (Centaur, Binz et al. 2025) works better than general instruction tuning — evidence that
+          the alignment–simulation tradeoff is not a fundamental barrier, but a training objective choice.
+          <div class="finding-highlight" style="background:#4ade8010;color:var(--green);border:1px solid #4ade8030;">
+            → Bet: behavior-grounded prediction beats prompting
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Six Testable Hypotheses</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Each finding above points to a specific, falsifiable claim — some testable directly on SimBench,
+      others needing behavioral data beyond it.
+      These are ordered by leverage — from the core load-bearing test down to calibration details.
+      Click any to expand.
+    </p>
+
+    <div class="hyp-list">
+      <div class="hyp" onclick="toggleHyp(this)">
+        <div class="hyp-trigger">
+          <div class="hyp-num">H1</div>
+          <div class="hyp-title">The value–action gap holds for real-world behavior</div>
+          <span class="pill pill-red hyp-tag">Load-bearing</span>
+          <span class="hyp-arrow">▶</span>
+        </div>
+        <div class="hyp-body"><div class="hyp-body-inner">
+          Revealed behavior (completing, repeating, abandoning, paying) is predicted markedly worse than
+          stated preferences — with the gap resembling SimBench's attitude→behavior drop (~0.83 → ~0.66).<br><br>
+          <strong>Test:</strong> Pair stated-preference prediction vs. revealed-behavior prediction on the same items;
+          measure both in normalized, distributional terms. If the gap is large → confidence should be tiered by
+          prediction type. If small → the reliable surface is bigger than the literature implies (upside surprise).
+        </div></div>
+      </div>
+
+      <div class="hyp" onclick="toggleHyp(this)">
+        <div class="hyp-trigger">
+          <div class="hyp-num">H2</div>
+          <div class="hyp-title">Behavior-grounded fine-tuning closes the behavior gap</div>
+          <span class="pill pill-cyan hyp-tag">Fine-tuning</span>
+          <span class="hyp-arrow">▶</span>
+        </div>
+        <div class="hyp-body"><div class="hyp-body-inner">
+          A model fine-tuned on behavioral traces beats prompt-only generative agents on held-out action
+          prediction by ~21–25%, consistent with the <em>Beyond Believability</em> result.<br><br>
+          <strong>Test:</strong> Prompt-only agent vs. trace-tuned model on held-out behavioral outcomes.
+          Evidence base: arXiv:2503.20749; Centaur (Binz et al. 2025).
+        </div></div>
+      </div>
+
+      <div class="hyp" onclick="toggleHyp(this)">
+        <div class="hyp-trigger">
+          <div class="hyp-num">H3</div>
+          <div class="hyp-title">Distribution-preserving models outperform aligned ones on diverse items</div>
+          <span class="pill pill-purple hyp-tag">Model choice</span>
+          <span class="hyp-arrow">▶</span>
+        </div>
+        <div class="hyp-body"><div class="hyp-body-inner">
+          On high-entropy / heterogeneous slices, base or model-merged models outperform aligned frontier
+          models — the alignment–simulation tradeoff (r=−0.942) appears beyond surveys too.<br><br>
+          <strong>Test:</strong> Base vs. instruct vs. merged on high- vs. low-entropy segments.
+          Evidence: SimBench r=−0.942; Hu/Minixhofer/Collier model-merging (arXiv:2510.17426).
+        </div></div>
+      </div>
+
+      <div class="hyp" onclick="toggleHyp(this)">
+        <div class="hyp-trigger">
+          <div class="hyp-num">H4</div>
+          <div class="hyp-title">Persona vectors detect miscalibration — they don't cause accuracy</div>
+          <span class="pill pill-amber hyp-tag">Governance</span>
+          <span class="hyp-arrow">▶</span>
+        </div>
+        <div class="hyp-body"><div class="hyp-body-inner">
+          A "stereotype-direction" projection (representation engineering) predicts <em>when</em> an agent
+          is miscalibrated (collapsed toward a demographic prior) better than persona conditioning improves accuracy.<br><br>
+          <strong>Test:</strong> Regress prediction error on the magnitude of activation projection onto extracted
+          stereotype directions. Compare against accuracy delta from naive persona conditioning.
+          Evidence: Hu &amp; Collier 2024; Anthropic Persona Vectors (arXiv:2507.21509).
+        </div></div>
+      </div>
+
+      <div class="hyp" onclick="toggleHyp(this)">
+        <div class="hyp-trigger">
+          <div class="hyp-num">H5</div>
+          <div class="hyp-title">Rank-order is reliable; magnitude is not</div>
+          <span class="pill pill-green hyp-tag">Reporting</span>
+          <span class="hyp-arrow">▶</span>
+        </div>
+        <div class="hyp-body"><div class="hyp-body-inner">
+          Simulated rankings of items correlate well with realized rankings (high rank-order r)
+          while absolute magnitude predictions are systematically inflated and poorly calibrated.<br><br>
+          <strong>Why it matters:</strong> If confirmed, the right output format follows — <em>calibrated rank +
+          explicit confidence tier + refused point-magnitude</em>. Park finds sign r=0.91–0.99 but broken magnitude;
+          Bisbee et al. find 7× polarization inflation. The literature strongly predicts this.
+        </div></div>
+      </div>
+
+      <div class="hyp" onclick="toggleHyp(this)">
+        <div class="hyp-trigger">
+          <div class="hyp-num">H6</div>
+          <div class="hyp-title">Cold-start extrapolation has signal, but can't be magnitude-calibrated</div>
+          <span class="pill pill-indigo hyp-tag">Cold start</span>
+          <span class="hyp-arrow">▶</span>
+        </div>
+        <div class="hyp-body"><div class="hyp-body-inner">
+          For novel items with no behavioral history, placing the item semantically against behavior-anchored
+          neighbors beats chance — but can't be magnitude-calibrated without labels.<br><br>
+          <strong>Test:</strong> Hold out whole item clusters; measure rank recovery from semantic placement alone.
+          Sets the honest ceiling for the cold-start tier.
+          Evidence: SimBench MMLU-Pro r=0.94 correlation establishes the semantic-extrapolation floor.
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">What We Found — Results</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Eighteen preregistered stages turned these diagnoses into experiments, ending in a single sealed-test
+      evaluation. The headline is honest about where the gains came from:
+      <strong>the model is the dominant lever; the method stack is a real but much smaller addition on top.</strong>
+    </p>
+    <div class="stat-row stagger">
+      <div class="stat-card"><div class="stat-val">40.9</div><div class="stat-label">final sealed-test score (calibrated_commitment + abstain, Gemini-3.1)</div></div>
+      <div class="stat-card"><div class="stat-val">+15.9</div><div class="stat-label">from the model swap alone (Gemini-2.5 → 3.1: faithful 19.3 → 35.2)</div></div>
+      <div class="stat-card"><div class="stat-val">+5.5</div><div class="stat-label">added by the full method stack, on top of the model</div></div>
+      <div class="stat-card"><div class="stat-val">26.8</div><div class="stat-label">faithful @ Qwen2.5-72B — brackets the paper's reported 27.6 ✓</div></div>
+    </div>
+    <div class="callout">
+      <span class="callout-icon">🔬</span>
+      <div>
+        <strong>The real output is the method, not the number.</strong> A deliberate share of the effort went into a
+        reusable <em>meta-science tool</em> for crafting experiments — preregistration, a frozen lever registry, the Ladder
+        gate, and an auditable ledger — rather than chasing a few more points. That machinery is what makes the 40.9
+        defensible: every gain is gated against overfitting and every run is reproducible. On sealed test the val-confirmed
+        task-kind router <em>tied</em> the simpler <code>calibrated_commitment + abstain</code>, so the simpler system
+        leads the reporting — the textbook reason a held-out test set exists.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Directions Considered But Not Adopted</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      An honest overview names the roads not taken. Several promising ideas were pursued in depth and rejected,
+      one was fully specified and deferred for time, and one remains the open frontier.
+    </p>
+    <div class="oq-list">
+      <div class="oq-item">
+        <div class="oq-status"><span class="pill pill-green">Settled</span></div>
+        <div class="oq-text"><strong>Model choice is the dominant lever — not a commodity.</strong> Swapping Gemini-2.5 → 3.1-flash-lite moved the faithful baseline +15.9 (19.3 → 35.2); the whole method stack adds +5.5 on top. Above a capability floor frontier models cluster, but the margin is decisive — and a 22×-pricier flagship was <em>not</em> better.</div>
+      </div>
+      <div class="oq-item">
+        <div class="oq-status"><span class="pill pill-red">Rejected</span></div>
+        <div class="oq-text"><strong>Bottom-up persona simulation, even census-grounded.</strong> Stage 18 replaced generic synthetic personas with <em>Nemotron-Personas-USA</em> (a million census-grounded US adults). Over five rounds it solved the spread problem (predicted entropy 0.644 vs. truth 0.692 — the first persona simulator in the project to get the <em>shape</em> right) and supplied a missing ideology axis (→ 51.8), yet stayed ~11 points below the direct <code>calibrated_commitment</code> ask (63.2) and added nothing in ensemble (+0.5). The binding constraint is <em>location</em>, not spread — the fourth confirmation (Stages 03 / 07 / 13 / 18) that elaborate bottom-up methods lose to the direct distributional ask. Persona line closed.</div>
+      </div>
+      <div class="oq-item">
+        <div class="oq-status"><span class="pill pill-red">Rejected</span></div>
+        <div class="oq-text"><strong>Elaborate reasoning &amp; post-hoc calibration.</strong> Superforecaster and diversity-CoT prompting, Monte-Carlo individuals, and temperature / entropy / Dirichlet calibration all lose to the plain distributional ask. Reasoning-first is a tax on this task, and spread cannot be fixed without first fixing the mode.</div>
+      </div>
+      <div class="oq-item">
+        <div class="oq-status"><span class="pill pill-amber">Deferred</span></div>
+        <div class="oq-text"><strong>Agentic web retrieval.</strong> Internet tools are a natural way to gather context, so we fully preregistered a <code>WebAgentPredictor</code> — a bounded tool-calling agent over guarded, disk-cached web search/fetch, with identity-stripping + a domain blocklist (so it cannot look up the survey's published results) and a closed-book twin as a control. Held, not run — deferred for time, not for lack of promise. The most natural next lever.</div>
+      </div>
+      <div class="oq-item">
+        <div class="oq-status"><span class="pill pill-red">Open frontier</span></div>
+        <div class="oq-text"><strong>Does accumulated behavioral data predict staked behavior?</strong> The bottom-right empty cell of the evidence matrix — untested by anyone. SimBench measures stated attitudes and benchmark-scale choices; whether accumulated behavioral traces let LLMs predict what people actually <em>do</em> is the natural next question beyond it.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /page-science -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PAGE 2 — EXPERIMENT DESIGN
+══════════════════════════════════════════════════════════════════════ -->
+<div id="page-experiment" class="page">
+<div class="content">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Experiment Design</div>
+    <div class="hero-title">How do you iterate on ideas without accidentally cheating?</div>
+    <div class="hero-body">
+      The project explores many possible improvements — different prompting strategies, model choices,
+      calibration methods — before committing to a final answer. The challenge: every design decision
+      is implicitly "fit to data," even without gradient training. If you evaluate on the same data
+      you're using to make decisions, you'll fool yourself into thinking ideas work that don't.
+      <br><br>
+      The solution is a three-part discipline:
+      a <strong>principled data split</strong> that prevents leakage,
+      a <strong>pre-registered set of interventions</strong> that freezes the search space before any test-set contact,
+      and a <strong>statistical guardrail</strong> (the Ladder gate) that controls how much information the
+      validation set reveals per query — bounding the overfitting that would otherwise creep in through repeated evaluation.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">The Data: SimBench Records</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Each record is a typed <code>SimBenchRecord</code>: a survey question, the answer options,
+      a demographic segment (country × attribute), and the empirical response distribution from real respondents.
+      SimBench ships two evaluation splits — population (unconditioned) and grouped (demographic-conditioned) —
+      but <strong>no train/dev partition</strong>. We construct the holdout structure entirely.
+    </p>
+
+    <div class="metric-grid" style="margin-bottom:1.25rem;">
+      <div class="metric-card">
+        <div class="metric-title">SimBenchPop — population split</div>
+        <div class="metric-body">
+          <strong>7,167 cases</strong> across 20 datasets. Each case uses the benchmark's default group prompt —
+          no demographic conditioning. This is the broader coverage split.
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">SimBenchGrouped — demographic split</div>
+        <div class="metric-body">
+          <strong>6,343 cases</strong> across 5 surveys (ESS, Afrobarometer, LatinoBarometro, OpinionQA, ISSP).
+          Each case is conditioned on a specific country × demographic attribute pair, e.g.
+          <code>{"cntry": "Finland", "age_group": "30-49"}</code>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">The Three-Way Split</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      We partition records into three non-overlapping buckets — but the unit of assignment is a
+      <strong>question family</strong>, not a row. SimBench's grouped split has many near-duplicate variants
+      of each survey item (one per demographic segment). A random row split would scatter siblings across
+      buckets, effectively evaluating the model on questions it was tuned on. We prevent this by
+      keeping all variants of a question together.
+    </p>
+
+    <div class="split-visual">
+      <div class="split-bar">
+        <div class="split-seg seg-dev"><span class="seg-name">dev</span><span class="seg-pct">50%</span></div>
+        <div class="split-seg seg-val"><span class="seg-name">val</span><span class="seg-pct">25%</span></div>
+        <div class="split-seg seg-test"><span class="seg-name">test</span><span class="seg-pct">25%</span></div>
+      </div>
+      <div class="split-roles">
+        <div class="split-role">
+          <div class="split-role-name" style="color:#818cf8;">dev — iterate freely</div>
+          <div class="split-role-desc">Error analysis, comparing simulation systems, ablating design choices. The experiments notebook runs exclusively here. No restrictions.</div>
+        </div>
+        <div class="split-role">
+          <div class="split-role-name" style="color:#c084fc;">val — gated access</div>
+          <div class="split-role-desc">Model selection and calibration fitting. Accessed only when the Ladder gate admits a candidate. Each query costs one unit of the validation budget K.</div>
+        </div>
+        <div class="split-role">
+          <div class="split-role-name" style="color:#f472b6;">test — locked</div>
+          <div class="split-role-desc">Scored exactly once, at the very end, for the final report. The three pinned questions (trust_president, gay_rights, internet_use) live here and never inform a design decision.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>How assignment works:</strong> Each question family is hashed (seeded SHA-256) to a value in [0, 1)
+      and placed by fixed cumulative-fraction thresholds. Assignment depends only on the family key and seed —
+      never on the rest of the dataset — so the partition is stable under additions or removals.
+      The three required assessment questions are extracted first and pinned to test before fractions are applied.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">The Lever Registry — a Pre-Committed Search Space</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Before any validation contact, we register a frozen set of theory-motivated interventions — "levers."
+      This pre-commitment is what makes the search statistically honest: by declaring all possible interventions
+      upfront, we bound the multiple-comparisons surface. The loop may only explore these.
+      Proposing anything off-registry is a gated, human-approved act.
+      Each lever carries its scientific hypothesis, mechanism, and expected direction — so rationales are
+      grounded in the SimBench findings, not post-hoc.
+    </p>
+
+    <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border);">
+    <table class="lever-table">
+      <thead>
+        <tr>
+          <th>Lever ID</th>
+          <th>Hypothesis</th>
+          <th>Scientific Mechanism</th>
+          <th>Expected Direction</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="lever-id">recalib.global_temp</span></td>
+          <td>A single temperature parameter corrects mode-seeking over-confidence.</td>
+          <td>RLHF → mode-seeking KL → over-sharp predicted distributions. Temperature T &gt; 1 flattens them back toward the true spread.</td>
+          <td><span class="lever-dir">↑ S overall</span>, especially mid-entropy items.</td>
+        </tr>
+        <tr>
+          <td><span class="lever-id">recalib.entropy_temp</span></td>
+          <td>Apply more correction where the model is already most diffuse.</td>
+          <td>SimBench r=−0.942: the alignment harm is largest on high-entropy items. An entropy-adaptive temperature targets the worst-affected regime without hurting consensus items.</td>
+          <td><span class="lever-dir">↑ S on diverse items</span>, neutral on consensus.</td>
+        </tr>
+        <tr>
+          <td><span class="lever-id">recalib.dirichlet</span></td>
+          <td>Additive smoothing restores probability mass to suppressed options.</td>
+          <td>Mode collapse zeros out plausible minority responses. Dirichlet smoothing (q_i ∝ q_i + α) restores tail probability, matching the observed multi-modal human distribution.</td>
+          <td><span class="lever-dir">↑ S on multi-modal items</span> with under-predicted tails.</td>
+        </tr>
+        <tr>
+          <td><span class="lever-id">model.swap</span></td>
+          <td>A base or less-aligned model is a better simulator on high-entropy items.</td>
+          <td>Mass-covering pretraining &gt; mode-seeking RLHF when the target is diverse human responses. For items past entropy ≈ 0.8, alignment actively hurts.</td>
+          <td><span class="lever-dir">↑ S on high-entropy items</span>; may reduce need for recalibration.</td>
+        </tr>
+        <tr>
+          <td><span class="lever-id">predictor.swap</span></td>
+          <td>Predict the distribution <em>shift</em> from population, rather than "be this group."</td>
+          <td>SimBench: all demographic conditioning strategies degrade accuracy. Predicting the delta avoids the caricature collapse while still incorporating conditioning information.</td>
+          <td><span class="lever-dir">↑ counterfactual alignment</span> without persona degradation.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">The Search Loop — How We Explore Safely</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      A proposer selects a lever, applies it to the current pipeline configuration, and evaluates
+      the result on dev — freely, as many times as needed. Dev improvement triggers a <em>validation query</em>:
+      a single evaluation on the held-out val set. Every val query goes through the Ladder gate (explained below),
+      which decides whether the improvement is real or noise. The entire process is logged to a DAG ledger,
+      enabling resumability and auditability.
+    </p>
+
+    <div class="flow-container">
+      <svg viewBox="0 0 450 620" style="width:100%;max-width:420px;display:block;margin:0 auto;" aria-label="Search loop flowchart">
+        <defs>
+          <marker id="fl" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3z" fill="#818cf8"/>
+          </marker>
+          <marker id="fl-g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3z" fill="#4ade80"/>
+          </marker>
+          <marker id="fl-r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3z" fill="#f87171"/>
+          </marker>
+          <marker id="fl-d" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3z" fill="#3d4f72"/>
+          </marker>
+        </defs>
+
+        <!-- ── 1. PROPOSE ── -->
+        <rect x="70" y="14" width="260" height="64" rx="9" fill="#161d2e" stroke="#818cf8" stroke-width="1.5"/>
+        <text x="200" y="37" text-anchor="middle" fill="#e2e8f4" font-size="12" font-weight="700">Propose a lever</text>
+        <text x="200" y="54" text-anchor="middle" fill="#7b8db5" font-size="9.5">propose_fn(state) → lever_id + params</text>
+        <text x="200" y="70" text-anchor="middle" fill="#38bdf8" font-size="9">Each proposal includes a rationale</text>
+
+        <!-- Propose → Registry -->
+        <line x1="200" y1="78" x2="200" y2="91" stroke="#818cf8" stroke-width="1.5" marker-end="url(#fl)"/>
+
+        <!-- ── 2. REGISTRY GATE (diamond) ── -->
+        <polygon points="200,93 238,123 200,153 162,123" fill="#161d2e" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="200" y="119" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">In lever</text>
+        <text x="200" y="133" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">registry?</text>
+
+        <!-- Registry NO → HALT (right) -->
+        <line x1="238" y1="123" x2="350" y2="123" stroke="#f87171" stroke-width="1.5" marker-end="url(#fl-r)"/>
+        <text x="292" y="115" text-anchor="middle" fill="#f87171" font-size="8.5">no</text>
+        <rect x="350" y="104" width="88" height="40" rx="7" fill="#f8717112" stroke="#f87171" stroke-width="1.5"/>
+        <text x="394" y="121" text-anchor="middle" fill="#f87171" font-size="11" font-weight="700">HALT</text>
+        <text x="394" y="136" text-anchor="middle" fill="#f87171" font-size="8.5">off-registry</text>
+
+        <!-- Registry YES → Score DEV -->
+        <line x1="200" y1="153" x2="200" y2="179" stroke="#818cf8" stroke-width="1.5" marker-end="url(#fl)"/>
+        <text x="210" y="172" fill="#4ade80" font-size="8.5">yes</text>
+
+        <!-- ── 3. SCORE ON DEV ── -->
+        <rect x="66" y="181" width="268" height="72" rx="9" fill="#161d2e" stroke="#818cf8" stroke-width="1.5"/>
+        <text x="200" y="204" text-anchor="middle" fill="#e2e8f4" font-size="12" font-weight="700">Score on DEV</text>
+        <text x="200" y="221" text-anchor="middle" fill="#7b8db5" font-size="9.5">apply_lever(spec) → new config</text>
+        <text x="200" y="238" text-anchor="middle" fill="#38bdf8" font-size="9.5">evaluate(new_spec, dev_records)</text>
+
+        <!-- Score DEV → Dev improved? -->
+        <line x1="200" y1="253" x2="200" y2="276" stroke="#818cf8" stroke-width="1.5" marker-end="url(#fl)"/>
+
+        <!-- ── 4. DEV IMPROVED? (diamond) ── -->
+        <polygon points="200,278 238,308 200,338 162,308" fill="#161d2e" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="200" y="304" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">dev</text>
+        <text x="200" y="318" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">improved?</text>
+
+        <!-- Dev NO → left backbone exit -->
+        <line x1="162" y1="308" x2="35" y2="308" stroke="#3d4f72" stroke-width="1.4"/>
+        <text x="98" y="300" text-anchor="middle" fill="#3d4f72" font-size="8">no — log &amp; loop</text>
+
+        <!-- Dev YES → Ladder Gate -->
+        <line x1="200" y1="338" x2="200" y2="357" stroke="#818cf8" stroke-width="1.5" marker-end="url(#fl)"/>
+        <text x="210" y="351" fill="#4ade80" font-size="8.5">yes</text>
+
+        <!-- ── 5. LADDER GATE ── -->
+        <rect x="46" y="359" width="308" height="93" rx="9" fill="#1b2336" stroke="#c084fc" stroke-width="2"/>
+        <text x="200" y="383" text-anchor="middle" fill="#e2e8f4" font-size="12" font-weight="700">Ladder Gate — query VAL</text>
+        <text x="200" y="400" text-anchor="middle" fill="#7b8db5" font-size="9.5">evaluate(new_spec, val_records)</text>
+        <text x="200" y="417" text-anchor="middle" fill="#c084fc" font-size="9.5">accept iff val_score &gt; best + η</text>
+        <text x="200" y="434" text-anchor="middle" fill="#7b8db5" font-size="9">spends one K · logs to DAG ledger</text>
+
+        <!-- Ladder Gate → Val accepted? -->
+        <line x1="200" y1="452" x2="200" y2="474" stroke="#818cf8" stroke-width="1.5" marker-end="url(#fl)"/>
+
+        <!-- ── 6. VAL ACCEPTED? (diamond) ── -->
+        <polygon points="200,476 238,506 200,536 162,506" fill="#161d2e" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="200" y="502" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">val</text>
+        <text x="200" y="516" text-anchor="middle" fill="#fbbf24" font-size="9.5" font-weight="700">accepted?</text>
+
+        <!-- Val NO → left backbone exit -->
+        <line x1="162" y1="506" x2="35" y2="506" stroke="#3d4f72" stroke-width="1.4"/>
+        <text x="98" y="498" text-anchor="middle" fill="#3d4f72" font-size="8">no — rejected, loop</text>
+
+        <!-- Val YES → Spec advances -->
+        <line x1="200" y1="536" x2="200" y2="552" stroke="#4ade80" stroke-width="1.5" marker-end="url(#fl-g)"/>
+        <text x="210" y="549" fill="#4ade80" font-size="8.5">yes</text>
+
+        <!-- ── 7. SPEC ADVANCES ── -->
+        <rect x="78" y="554" width="244" height="44" rx="8" fill="#4ade8012" stroke="#4ade80" stroke-width="1.5"/>
+        <text x="200" y="573" text-anchor="middle" fill="#4ade80" font-size="11.5" font-weight="700">✓ Spec advances</text>
+        <text x="200" y="590" text-anchor="middle" fill="#7b8db5" font-size="9">best val score updated — loop</text>
+
+        <!-- Spec advances → left backbone exit -->
+        <line x1="78" y1="576" x2="35" y2="576" stroke="#4ade80" stroke-width="1.4"/>
+
+        <!-- ── LEFT BACKBONE (loop collector) ── -->
+        <line x1="35" y1="46" x2="35" y2="576" stroke="#252e42" stroke-width="2"/>
+        <!-- Re-enter Propose at top -->
+        <line x1="35" y1="46" x2="69" y2="46" stroke="#3d4f72" stroke-width="1.5" marker-end="url(#fl-d)"/>
+        <!-- Subtle loop label -->
+        <text x="17" y="350" text-anchor="middle" fill="#3d4f72" font-size="7.5" transform="rotate(-90 17 350)">↑ loop back to propose</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">The Ladder Gate — Preventing Noise Overfitting</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Every time we query the validation set to check whether an improvement is real,
+      we spend a little of our statistical budget — the more we query, the more likely we are to
+      accidentally find a result that looks good on val but won't generalize.
+      The Ladder gate (Blum &amp; Hardt 2015) solves this by raising the bar each time we query.
+    </p>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-title">How the gate works</div>
+        <div class="metric-body">
+          A candidate is promoted only if its val score exceeds the running best by more than a threshold η:
+          <br><br>
+          <span class="formula-box">accept iff score &gt; best + η</span>
+          <br><br>
+          Under this rule, the held-out estimate's generalization error is bounded by
+          ~(log(k·n)/n)^(1/3) regardless of how many candidates k are tried.
+          <strong>An adaptive search cannot climb a noise ladder.</strong>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">How η is calibrated</div>
+        <div class="metric-body">
+          η is not guessed — it's estimated from bootstrap resampling of a reference pipeline's val scores:
+          <br><br>
+          <span class="formula-box" style="font-size:0.8rem;">η = mult × std(bootstrap_means)</span>
+          <br><br>
+          This gives the noise scale of the val mean-S: the smallest difference between two pipelines
+          that's distinguishable from finite-sample wobble. Computed <strong>once</strong>, before any val queries.
+          <code>mult ≥ 1.0</code> keeps the gate conservative.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Measurement</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      Two complementary metrics give a full picture — how accurate the distribution is in absolute terms,
+      and whether conditioning on demographics moves the prediction in the right direction.
+    </p>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-title">📊 SimBench Score S — primary</div>
+        <div class="metric-body">
+          <span class="formula-box" style="font-size:0.8rem;">S = 100·(1 − TVD(P,Q)/TVD(P,U))</span><br><br>
+          Measured as mean S across records + 95% percentile bootstrap CI (2,000 resamples).
+          Normalizers are built from the <strong>full split</strong> (not the eval subsample) so scores are
+          comparable across systems. Reported with an entropy-binned breakdown to diagnose the
+          alignment–simulation tradeoff per regime.
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">🧭 Counterfactual Sensitivity — secondary</div>
+        <div class="metric-body">
+          Measures whether demographic conditioning moves predictions in the <em>right direction</em>,
+          even when absolute magnitude is off. A system can have poor absolute S but correct directional
+          sensitivity — useful for diagnosing whether predictor strategies are doing anything structurally
+          useful vs. just adding noise.
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Experiment Replay — A Concrete Search Run</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">
+      What does 6 steps of the search loop look like in practice?
+      The proposer cycles through the 5 registered levers; some improve dev and clear the Ladder gate,
+      others fall short. Click play to step through.
+    </p>
+
+    <div class="replay-wrap">
+      <div class="replay-header">
+        <span class="replay-title">6-step run · gemini-flash-lite baseline · η = 1.2 (bootstrap)</span>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="replay-btn" id="replay-play" onclick="replayPlay()">▶ Play</button>
+          <button class="replay-btn replay-btn-ghost" onclick="replayReset()">↺ Reset</button>
+        </div>
+      </div>
+
+      <div class="replay-body">
+        <!-- LEFT: current spec state -->
+        <div class="spec-panel">
+          <div class="spec-panel-label">Current best spec</div>
+          <div class="spec-field">
+            <span class="spec-key">model</span>
+            <span class="spec-val" id="sp-model">gemini-flash-lite</span>
+          </div>
+          <div class="spec-field">
+            <span class="spec-key">predictor</span>
+            <span class="spec-val" id="sp-predictor">zero_shot</span>
+          </div>
+          <div class="spec-field">
+            <span class="spec-key">calibrators</span>
+            <div id="sp-calibrators" class="spec-cal-list"><span style="color:var(--faint);font-style:italic;">none</span></div>
+          </div>
+          <div class="spec-score-row">
+            <span class="spec-key">Best val score</span>
+            <span class="spec-score" id="sp-val">—</span>
+          </div>
+          <div class="spec-k-row">
+            <span class="spec-key">Val queries used (K)</span>
+            <span class="spec-k" id="sp-k">0</span>
+          </div>
+        </div>
+
+        <!-- RIGHT: run log -->
+        <div class="run-log">
+          <div class="run-log-header">
+            <span style="flex:0 0 22px;">#</span>
+            <span style="flex:1;">Lever</span>
+            <span style="flex:0 0 58px;text-align:center;">Dev Δ</span>
+            <span style="flex:0 0 56px;text-align:center;">Val</span>
+            <span style="flex:0 0 62px;text-align:right;">Result</span>
+          </div>
+          <div id="run-log-body">
+            <div class="run-log-empty">Press ▶ Play to begin</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="search-result" class="search-result" style="display:none;"></div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /page-experiment -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PAGE 3 — ARCHITECTURE
+══════════════════════════════════════════════════════════════════════ -->
+<div id="page-architecture" class="page">
+<div class="content">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Architecture</div>
+    <div class="hero-title">Four layers, one loop, zero hidden state.</div>
+    <div class="hero-body">
+      The codebase is built to match the structure of the experiment: foundation utilities that never change,
+      a swappable prediction pipeline where ideas live, a search engine that explores those ideas safely,
+      and output tools that report what was found. Each layer depends only on the layers below it.
+      <br><br>
+      <strong>Click any module</strong> to see its full description and dependencies.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">End-to-End Data Flow</div>
+      <div class="section-title-line"></div>
+    </div>
+    <p class="section-lead">The five steps from raw data to final report, in order.</p>
+
+    <div class="flow-strip">
+      <div class="flow-step">
+        <div class="flow-step-num">Step 1</div>
+        <div class="flow-step-name">Ingest</div>
+        <div class="flow-step-sub"><code>data.py</code> downloads SimBench → typed <code>SimBenchRecord</code> list</div>
+        <span class="flow-arrow">›</span>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">Step 2</div>
+        <div class="flow-step-name">Split</div>
+        <div class="flow-step-sub"><code>splits.py</code> partitions by question family → dev / val / test</div>
+        <span class="flow-arrow">›</span>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">Step 3</div>
+        <div class="flow-step-name">Iterate on dev</div>
+        <div class="flow-step-sub"><code>experiment.compare()</code> evaluates pipelines on dev records; LLM calls cached</div>
+        <span class="flow-arrow">›</span>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">Step 4</div>
+        <div class="flow-step-name">Search</div>
+        <div class="flow-step-sub"><code>search.run_search()</code> explores levers; val queries gated by Ladder</div>
+        <span class="flow-arrow">›</span>
+      </div>
+      <div class="flow-step" style="border-right:none;">
+        <div class="flow-step-num">Step 5</div>
+        <div class="flow-step-name">Report</div>
+        <div class="flow-step-sub">Best spec scored on locked test set once; <code>report.py</code> + <code>viz.py</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Module Map — click any module to explore</div>
+      <div class="section-title-line"></div>
+    </div>
+
+    <!-- FOUNDATION -->
+    <div class="arch-layer layer-foundation">
+      <div class="arch-layer-label">
+        <div class="layer-dot" style="background:#38bdf8;"></div>
+        Foundation — shared utilities imported by everything above
+      </div>
+      <div class="module-row">
+        <div class="mod" data-mod="config">
+          <div class="mod-name">config.py</div>
+          <div class="mod-desc">Paths, model IDs, .env loading, SimBench coordinates</div>
+        </div>
+        <div class="mod" data-mod="data">
+          <div class="mod-name">data.py</div>
+          <div class="mod-desc">Download SimBench, parse → SimBenchRecord</div>
+        </div>
+        <div class="mod" data-mod="llm">
+          <div class="mod-name">llm.py</div>
+          <div class="mod-desc">OpenRouter client, disk cache, retries, cost tracking</div>
+        </div>
+        <div class="mod" data-mod="scoring">
+          <div class="mod-name">scoring.py</div>
+          <div class="mod-desc">SimBench score S, TVD, bootstrap CIs</div>
+        </div>
+        <div class="mod" data-mod="distributions">
+          <div class="mod-name">distributions.py</div>
+          <div class="mod-desc">SegmentWeights for post-stratification</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CORE PIPELINE -->
+    <div class="arch-layer layer-pipeline">
+      <div class="arch-layer-label">
+        <div class="layer-dot" style="background:#818cf8;"></div>
+        Core Pipeline — the swappable prediction machinery
+      </div>
+      <div class="module-row">
+        <div class="mod" data-mod="splits">
+          <div class="mod-name">splits.py</div>
+          <div class="mod-desc">Leave-family-out split engine, dev/val/test</div>
+        </div>
+        <div class="mod" data-mod="persona">
+          <div class="mod-name">persona.py</div>
+          <div class="mod-desc">5 demographic-conditioning prompt strategies</div>
+        </div>
+        <div class="mod" data-mod="predict">
+          <div class="mod-name">predict.py</div>
+          <div class="mod-desc">ZeroShot, Uniform, PostStratification predictors</div>
+        </div>
+        <div class="mod" data-mod="calibrate">
+          <div class="mod-name">calibrate.py</div>
+          <div class="mod-desc">Temp, EntropyTemp, Dirichlet, Chain calibrators</div>
+        </div>
+        <div class="mod" data-mod="pipeline">
+          <div class="mod-name">pipeline.py</div>
+          <div class="mod-desc">Pipeline(predictor, calibrator) composition</div>
+        </div>
+        <div class="mod" data-mod="evaluate">
+          <div class="mod-name">evaluate.py</div>
+          <div class="mod-desc">Batch evaluation, normalizers, counterfactual sensitivity</div>
+        </div>
+        <div class="mod" data-mod="experiment">
+          <div class="mod-name">experiment.py</div>
+          <div class="mod-desc">compare(), model_sweep(), PREDICTOR_REGISTRY</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEARCH ENGINE -->
+    <div class="arch-layer layer-search">
+      <div class="arch-layer-label">
+        <div class="layer-dot" style="background:#c084fc;"></div>
+        Search Engine — safe, auditable exploration of the lever space
+      </div>
+      <div class="module-row">
+        <div class="mod" data-mod="spec">
+          <div class="mod-name">spec.py</div>
+          <div class="mod-desc">Content-addressed PipelineSpec, SHA-256 config_hash</div>
+        </div>
+        <div class="mod" data-mod="levers">
+          <div class="mod-name">levers.py</div>
+          <div class="mod-desc">5 frozen theory-levers, LEVER_REGISTRY v1</div>
+        </div>
+        <div class="mod" data-mod="ladder">
+          <div class="mod-name">ladder.py</div>
+          <div class="mod-desc">LadderGate (Blum &amp; Hardt), bootstrap_eta</div>
+        </div>
+        <div class="mod" data-mod="ledger">
+          <div class="mod-name">ledger.py</div>
+          <div class="mod-desc">Append-only DAG of experiment nodes, cost tracking</div>
+        </div>
+        <div class="mod" data-mod="search">
+          <div class="mod-name">search.py</div>
+          <div class="mod-desc">run_search() — the guarded loop, SearchContract</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="arch-layer layer-output">
+      <div class="arch-layer-label">
+        <div class="layer-dot" style="background:#4ade80;"></div>
+        Output — reporting and visualization
+      </div>
+      <div class="module-row">
+        <div class="mod" data-mod="report">
+          <div class="mod-name">report.py</div>
+          <div class="mod-desc">Final report: scores, cost summary, K-corrected bands</div>
+        </div>
+        <div class="mod" data-mod="viz">
+          <div class="mod-name">viz.py</div>
+          <div class="mod-desc">Score histograms, calibration plots → docs/figures/</div>
+        </div>
+        <div class="mod" data-mod="tree_view">
+          <div class="mod-name">tree_view.py</div>
+          <div class="mod-desc">ASCII renderer of the search DAG ledger</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detail-panel" class="detail-panel">
+      <div class="detail-header">
+        <span id="detail-name" class="detail-name"></span>
+        <span id="detail-badge"></span>
+        <button class="detail-close" onclick="closeDetail()">✕</button>
+      </div>
+      <div id="detail-body" class="detail-body"></div>
+      <div class="detail-grid">
+        <div>
+          <div class="detail-section-title">Imports from</div>
+          <div id="detail-imports" class="dep-list"></div>
+        </div>
+        <div>
+          <div class="detail-section-title">Used by</div>
+          <div id="detail-usedby" class="dep-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-legend">
+      <div class="legend-item"><div class="layer-dot" style="background:#38bdf8;"></div> Foundation</div>
+      <div class="legend-item"><div class="layer-dot" style="background:#818cf8;"></div> Core Pipeline</div>
+      <div class="legend-item"><div class="layer-dot" style="background:#c084fc;"></div> Search Engine</div>
+      <div class="legend-item"><div class="layer-dot" style="background:#4ade80;"></div> Output</div>
+      <span style="margin-left:auto;font-size:0.75rem;">Click a module to explore its connections</span>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /page-architecture -->
+
+
+<script>
+/* ══════════════════════════════════════════════════
+   Tab navigation
+══════════════════════════════════════════════════ */
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+  closeDetail();
+}
+
+/* ══════════════════════════════════════════════════
+   Hypothesis accordion
+══════════════════════════════════════════════════ */
+function toggleHyp(el) {
+  const isOpen = el.classList.contains('open');
+  document.querySelectorAll('.hyp.open').forEach(h => h.classList.remove('open'));
+  if (!isOpen) el.classList.add('open');
+}
+
+/* ══════════════════════════════════════════════════
+   Module detail explorer
+══════════════════════════════════════════════════ */
+const MODULE_DATA = {
+  config: {
+    layer: 'foundation', color: '#38bdf8',
+    desc: '<strong>config.py</strong> is the single source of truth for all constants and configuration. It loads <code>.env</code> (for the OpenRouter API key), defines all project paths (<code>DATA_DIR</code>, <code>CACHE_DIR</code>, <code>FIGURES_DIR</code>), maintains the validated map of short model keys to full OpenRouter model IDs, stores the SimBench HuggingFace coordinates, and pins the three required assessment questions that must land in the test set.',
+    imports: [],
+    usedBy: ['data', 'llm', 'splits', 'predict', 'experiment', 'report'],
+  },
+  data: {
+    layer: 'foundation', color: '#38bdf8',
+    desc: '<strong>data.py</strong> handles the full SimBench ingestion pipeline. It downloads the pop and grouped CSV files from HuggingFace on first run (subsequent runs are instant — files are cached locally), parses each row into a typed <code>SimBenchRecord</code> dataclass containing the question text, answer options list, a structured segment dict (e.g. <code>{"cntry": "Finland", "age_group": "30–49"}</code>), and the empirical response distribution as a <code>{label: probability}</code> dict.',
+    imports: ['config'],
+    usedBy: ['splits', 'persona', 'predict', 'evaluate', 'experiment'],
+  },
+  llm: {
+    layer: 'foundation', color: '#38bdf8',
+    desc: '<strong>llm.py</strong> wraps the OpenRouter API (which provides one OpenAI-compatible endpoint for any vendor by model ID). Key features: every completion is cached on disk under <code>data/cache/</code> keyed by SHA-256 of (model, messages, sampling params) — re-running the same call is free and deterministic. Thread-safe usage tracking accumulates total calls, tokens, and cost in USD. Retries with exponential backoff handle transient failures.',
+    imports: ['config'],
+    usedBy: ['predict'],
+  },
+  scoring: {
+    layer: 'foundation', color: '#38bdf8',
+    desc: '<strong>scoring.py</strong> implements the SimBench distributional metric: <code>S = 100·(1 − TVD(P,Q)/TVD(P,U))</code>. Also provides: Total Variation Distance (TVD) computation, Shannon response entropy (normalized to [0,1]), bootstrap confidence intervals via 2,000 resamples, per-record score computation, and <code>aggregate_score()</code> that returns mean S + CI + fraction below uniform.',
+    imports: [],
+    usedBy: ['evaluate', 'calibrate', 'report'],
+  },
+  distributions: {
+    layer: 'foundation', color: '#38bdf8',
+    desc: '<strong>distributions.py</strong> builds <code>SegmentWeights</code> objects for post-stratification. Given the grouped records for a question, it computes the respondent-count weights of each demographic sub-segment so the <code>PostStratificationPredictor</code> can decompose a coarse target into finer cells, predict each separately, and recombine by population weight. Verified: weighted average of sub-group truths reproduces the group marginal to mean TVD ≈ 0.0003.',
+    imports: ['data'],
+    usedBy: ['predict'],
+  },
+  splits: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>splits.py</strong> implements leave-family-out data partitioning. Family key = <code>(dataset_name, input_template)</code> — all segment variants of one survey item share a family and are never split across buckets. Assignment is deterministic: each family is hashed (seeded SHA-256) to [0,1) and placed by cumulative-fraction thresholds. The partition is stable under additions or removals elsewhere. The three required assessment questions are extracted first and pinned to the test bucket.',
+    imports: ['config', 'data'],
+    usedBy: ['experiment', 'evaluate'],
+  },
+  persona: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>persona.py</strong> is a registry of 5 swappable demographic-conditioning prompt strategies. (1) <code>simbench_faithful</code>: reproduces the benchmark\'s first-person baseline verbatim — the control. (2) <code>representative_sample</code>: third-person distributional framing. (3) <code>persona_embodiment</code>: strong immersive first-person persona. (4) <code>anti_flattening</code>: distributional + explicit diversity-preservation instruction. (5) <code>contextualized</code>: distributional + socio-cultural context anchor. Which helps vs. hurts is an empirical question — the module just provides the options.',
+    imports: ['data'],
+    usedBy: ['predict', 'experiment'],
+  },
+  predict: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>predict.py</strong> defines the <code>Predictor</code> protocol and three implementations. <code>ZeroShotPredictor</code>: prompts the LLM with a verbalized version of the survey question + optional persona conditioning, parses the JSON probability dict from the response (falls back to uniform on parse failure). <code>UniformPredictor</code>: always returns a uniform distribution — the naive baseline, S=0 by definition. <code>PostStratificationPredictor</code>: wraps a base predictor, decomposes the target into demographic sub-cells via SegmentWeights, predicts each, and recombines by respondent-count weights.',
+    imports: ['llm', 'persona', 'data', 'distributions'],
+    usedBy: ['pipeline', 'experiment'],
+  },
+  calibrate: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>calibrate.py</strong> provides post-prediction distribution correction. <code>IdentityCalibrator</code>: no-op (default when no calibration is wanted). <code>TempScaling(T)</code>: raises each probability to 1/T and renormalizes; T&gt;1 flattens the distribution, correcting mode-seeking over-confidence. <code>EntropyTempScaling(slope)</code>: entropy-adaptive — applies more correction on already-diffuse predictions (targeting the high-entropy regime where alignment is most harmful). <code>DirichletCalibrator(alpha)</code>: additive smoothing q_i ∝ q_i + alpha, restoring tail probability. <code>ChainCalibrator</code> composes any sequence of the above.',
+    imports: ['scoring'],
+    usedBy: ['pipeline', 'spec', 'experiment'],
+  },
+  pipeline: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>pipeline.py</strong> defines <code>Pipeline(predictor, calibrator)</code> — the fundamental unit of evaluation. A pipeline wraps one predictor and one optional calibrator into a single <code>predict(record) → distribution</code> call. Batch prediction is threaded (IO-bound LLM calls dominate) with a configurable worker count.',
+    imports: ['predict', 'calibrate'],
+    usedBy: ['evaluate', 'spec', 'experiment'],
+  },
+  evaluate: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>evaluate.py</strong> runs a pipeline over a record set and returns a per-record score DataFrame. Key functions: <code>build_normalizers(records)</code> — computes the per-dataset TVD(P,U) scalars from the full split so scores are comparable across systems and subsamples; <code>evaluate(pipeline, records)</code> — parallel batch evaluation; <code>summarize(results)</code> — mean S, bootstrap CI, fraction below uniform; <code>counterfactual_sensitivity(results)</code> — directional correctness metric.',
+    imports: ['scoring', 'pipeline', 'data'],
+    usedBy: ['experiment', 'search', 'report'],
+  },
+  experiment: {
+    layer: 'pipeline', color: '#818cf8',
+    desc: '<strong>experiment.py</strong> is the notebook-facing API. It maintains the <code>PREDICTOR_REGISTRY</code> (string keys → predictor factory functions, including all 5 persona strategies auto-registered at import). <code>build_pipeline(model, predictor, calibrator)</code> assembles a complete pipeline from parts. <code>compare(systems, records)</code> evaluates multiple named pipelines on the same records and returns a sorted topline DataFrame with per-system CIs and counterfactual alignment. <code>model_sweep(models, records)</code> holds the method fixed and varies only the model.',
+    imports: ['predict', 'calibrate', 'pipeline', 'evaluate', 'config', 'persona', 'splits'],
+    usedBy: ['search', 'report'],
+  },
+  spec: {
+    layer: 'search', color: '#c084fc',
+    desc: '<strong>spec.py</strong> defines <code>PipelineSpec</code> — a serializable, content-addressed description of a pipeline: model key + predictor name + ordered list of calibrator stages. Its <code>config_hash()</code> is SHA-256 over the resolved configuration (not over <code>lever_path</code>, which is provenance only). Two different sequences of lever applications that produce the same configuration are the same experiment — same hash, same cache entry. <code>build_from_spec(spec)</code> materializes a live <code>Pipeline</code> via the experiment registry.',
+    imports: ['calibrate', 'experiment', 'pipeline'],
+    usedBy: ['levers', 'search', 'ledger'],
+  },
+  levers: {
+    layer: 'search', color: '#c084fc',
+    desc: '<strong>levers.py</strong> contains the frozen LEVER_REGISTRY v1: 5 theory-motivated transforms of PipelineSpec. Each <code>Lever</code> is a pure function <code>(spec, params) → spec</code> with metadata: id, hypothesis, mechanism, expected_direction. The registry is sealed before any validation contact — the search loop uses this to enforce the off-registry halt. <code>apply_lever(spec, lever_id, params)</code> applies a transform and appends to the spec\'s <code>lever_path</code> for provenance.',
+    imports: ['spec'],
+    usedBy: ['search'],
+  },
+  ladder: {
+    layer: 'search', color: '#c084fc',
+    desc: '<strong>ladder.py</strong> implements the Ladder gate from Blum &amp; Hardt (2015, arXiv:1607.00091). <code>LadderGate(eta, best, k)</code> tracks the running best val score and a query counter. <code>consider(score)</code> spends one K and returns True iff <code>score &gt; best + eta</code> (and updates best). Guarantees that the generalization error of the val mean-S estimate is bounded ~(log(k·n)/n)^(1/3) regardless of how many candidates are tried. <code>bootstrap_eta(scores)</code> estimates the noise floor from bootstrapped means of a reference val score vector.',
+    imports: [],
+    usedBy: ['search'],
+  },
+  ledger: {
+    layer: 'search', color: '#c084fc',
+    desc: '<strong>ledger.py</strong> is an append-only JSONL DAG of <code>ExperimentNode</code> records. Each node stores: node_id, config_hash, parent_id (DAG structure), lever_id, rationale, dev_score, dev_breakdown, val_score, eta, accepted, global_k_at_query, timestamp, cost_usd, cum_cost_usd. The ledger tracks global K (distinct val-queried configs across the whole tree), enables config-hash cache hits (a revisited config returns its stored val score and costs no new K), and makes search resumable across sessions.',
+    imports: ['spec'],
+    usedBy: ['search', 'tree_view', 'report'],
+  },
+  search: {
+    layer: 'search', color: '#c084fc',
+    desc: '<strong>search.py</strong> is the guarded search loop. <code>run_search(contract, ledger, dev, val, score_fn, propose_fn)</code> — the <code>score_fn</code> and <code>propose_fn</code> are injected for testability (offline unit tests use fake score functions; production wraps <code>evaluate.evaluate</code>). A <code>SearchContract</code> specifies goal, allowed_levers, autonomy_budget, val_query_budget, eta, cost_cap_usd, and a <code>GatePolicy</code> with multiple halting conditions. The loop halts on budget exhaustion, off-registry proposal, or any policy gate, returning a <code>SearchOutcome</code> with the final spec and stop reason.',
+    imports: ['ladder', 'ledger', 'levers', 'spec'],
+    usedBy: ['report'],
+  },
+  report: {
+    layer: 'output', color: '#4ade80',
+    desc: '<strong>report.py</strong> generates the final Markdown report. <code>make_score_fn()</code> wraps evaluate for use as the search loop\'s score_fn (includes cost tracking). <code>k_corrected_band(mean_S, k, n)</code> computes the Blum–Hardt generalization bound to disclose how much of the result was driven by search. <code>final_report(winning_spec, test_records)</code> scores the winning configuration once on the locked test set and writes the full report with topline scores, per-dataset breakdown, system comparison, and cost summary.',
+    imports: ['evaluate', 'ledger', 'experiment', 'scoring'],
+    usedBy: [],
+  },
+  viz: {
+    layer: 'output', color: '#4ade80',
+    desc: '<strong>viz.py</strong> produces all presentation-grade figures. Outputs include: score histograms by system, score-by-dataset bar charts, calibration curves (predicted confidence vs. accuracy), score vs. response entropy scatter plots. Deliverable-grade figures are saved to <code>docs/figures/</code> (tracked in git via <code>config.FIGURES_DIR</code>); scratch figures go to <code>outputs/</code> (gitignored, regenerates from cache).',
+    imports: ['scoring', 'evaluate'],
+    usedBy: [],
+  },
+  tree_view: {
+    layer: 'output', color: '#4ade80',
+    desc: '<strong>tree_view.py</strong> renders the ledger\'s experiment DAG as an ASCII tree, used in notebooks for live inspection of the search history. Each node shows its lever ID, dev score, val score (if queried), eta, and accepted/rejected status (✓/✗/·). Parent–child relationships reflect the sequence of accepted spec advances, making the search path auditable at a glance.',
+    imports: ['ledger'],
+    usedBy: [],
+  },
+};
+
+const LAYER_COLORS = {
+  foundation: '#38bdf8', pipeline: '#818cf8', search: '#c084fc', output: '#4ade80',
+};
+const LAYER_NAMES = {
+  foundation: 'Foundation', pipeline: 'Core Pipeline', search: 'Search Engine', output: 'Output',
+};
+
+function selectMod(modId) {
+  const data = MODULE_DATA[modId];
+  if (!data) return;
+
+  // Update selection state
+  document.querySelectorAll('.mod').forEach(m => {
+    const mid = m.dataset.mod;
+    if (mid === modId) {
+      m.classList.add('selected');
+      m.classList.remove('highlighted', 'dimmed');
+    } else if (data.imports.includes(mid) || data.usedBy.includes(mid)) {
+      m.classList.add('highlighted');
+      m.classList.remove('selected', 'dimmed');
+    } else {
+      m.classList.add('dimmed');
+      m.classList.remove('selected', 'highlighted');
+    }
+  });
+
+  // Fill detail panel
+  document.getElementById('detail-name').textContent = modId + '.py';
+  const badge = document.getElementById('detail-badge');
+  badge.innerHTML = `<span class="pill" style="background:${data.color}18;border-color:${data.color}40;color:${data.color};">${LAYER_NAMES[data.layer]}</span>`;
+  document.getElementById('detail-body').innerHTML = data.desc;
+
+  const importsEl = document.getElementById('detail-imports');
+  importsEl.innerHTML = data.imports.length
+    ? data.imports.map(m => `<span class="dep-chip dep-chip-imports" onclick="selectMod('${m}')">${m}.py</span>`).join('')
+    : '<span style="color:var(--faint);font-size:0.75rem;">none — foundation module</span>';
+
+  const usedByEl = document.getElementById('detail-usedby');
+  usedByEl.innerHTML = data.usedBy.length
+    ? data.usedBy.map(m => `<span class="dep-chip dep-chip-used-by" onclick="selectMod('${m}')">${m}.py</span>`).join('')
+    : '<span style="color:var(--faint);font-size:0.75rem;">none — output module</span>';
+
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('visible');
+  // Scroll into view smoothly
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+}
+
+function closeDetail() {
+  document.querySelectorAll('.mod').forEach(m => m.classList.remove('selected', 'highlighted', 'dimmed'));
+  document.getElementById('detail-panel').classList.remove('visible');
+}
+
+// Wire up module clicks
+document.querySelectorAll('.mod').forEach(m => {
+  m.addEventListener('click', () => selectMod(m.dataset.mod));
+});
+
+/* ══════════════════════════════════════════════════
+   Experiment Replay
+══════════════════════════════════════════════════ */
+const REPLAY_STEPS = [
+  {
+    lever: 'recalib.global_temp', params: 'T = 1.4',
+    devDelta: +4.1, queriesVal: true, valScore: 37.8,
+    accepted: true,
+    cals: ['global_temp(T=1.4)'],
+  },
+  {
+    lever: 'recalib.entropy_temp', params: 'slope = 2.0',
+    devDelta: +1.5, queriesVal: true, valScore: 39.1,
+    accepted: true,
+    cals: ['global_temp(T=1.4)', 'entropy_temp(slope=2.0)'],
+  },
+  {
+    lever: 'model.swap', params: 'qwen-72b',
+    devDelta: +0.5, queriesVal: true, valScore: 38.3,
+    accepted: false,
+    rejectReason: 'val < best + η (1.2)',
+    cals: null,
+  },
+  {
+    lever: 'predictor.swap', params: 'delta',
+    devDelta: -0.6, queriesVal: false, valScore: null,
+    accepted: false,
+    rejectReason: 'dev did not improve',
+    cals: null,
+  },
+  {
+    lever: 'recalib.dirichlet', params: 'α = 0.15',
+    devDelta: +1.2, queriesVal: true, valScore: 40.5,
+    accepted: true,
+    cals: ['global_temp(T=1.4)', 'entropy_temp(slope=2.0)', 'dirichlet(α=0.15)'],
+  },
+  {
+    lever: 'recalib.global_temp', params: 'T = 1.2',
+    devDelta: -0.3, queriesVal: false, valScore: null,
+    accepted: false,
+    rejectReason: 'dev did not improve',
+    cals: null,
+  },
+];
+
+let _replayTimer = null;
+let _replayRunning = false;
+let _bestVal = null;
+let _kUsed = 0;
+
+function replayReset() {
+  clearTimeout(_replayTimer);
+  _replayRunning = false;
+  _bestVal = null;
+  _kUsed = 0;
+  document.getElementById('sp-model').textContent = 'gemini-flash-lite';
+  document.getElementById('sp-predictor').textContent = 'zero_shot';
+  document.getElementById('sp-calibrators').innerHTML = '<span style="color:var(--faint);font-style:italic;">none</span>';
+  const valEl = document.getElementById('sp-val');
+  valEl.textContent = '—';
+  valEl.className = 'spec-score';
+  document.getElementById('sp-k').textContent = '0';
+  document.getElementById('run-log-body').innerHTML = '<div class="run-log-empty">Press ▶ Play to begin</div>';
+  document.getElementById('search-result').style.display = 'none';
+  const btn = document.getElementById('replay-play');
+  btn.disabled = false;
+  btn.textContent = '▶ Play';
+}
+
+function replayPlay() {
+  if (_replayRunning) return;
+  _replayRunning = true;
+  document.getElementById('replay-play').disabled = true;
+  document.getElementById('replay-play').textContent = '⏳ Running…';
+  document.getElementById('run-log-body').innerHTML = '';
+  _runReplayStep(0);
+}
+
+function _runReplayStep(i) {
+  if (i >= REPLAY_STEPS.length) {
+    _replayTimer = setTimeout(_showReplayResult, 500);
+    return;
+  }
+  const s = REPLAY_STEPS[i];
+  const logBody = document.getElementById('run-log-body');
+
+  // Add pending row
+  const row = document.createElement('div');
+  row.className = 'log-row log-pending';
+  row.innerHTML =
+    '<span class="log-num">' + (i + 1) + '</span>' +
+    '<span class="log-lever"><span class="log-lever-name">' + s.lever + '</span>' +
+    '<span class="log-params">' + s.params + '</span></span>' +
+    '<span class="log-dev" style="color:var(--faint)">…</span>' +
+    '<span class="log-val" style="color:var(--faint)">…</span>' +
+    '<span class="log-result" style="color:var(--faint)">…</span>';
+  logBody.appendChild(row);
+  row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+  // Reveal dev score
+  _replayTimer = setTimeout(function() {
+    const sign = s.devDelta >= 0 ? '+' : '';
+    const devColor = s.devDelta >= 0 ? 'var(--green)' : 'var(--red)';
+    row.querySelector('.log-dev').innerHTML =
+      '<span style="color:' + devColor + '">' + sign + s.devDelta.toFixed(1) + '</span>';
+
+    // Reveal val + result
+    _replayTimer = setTimeout(function() {
+      if (s.queriesVal) {
+        _kUsed++;
+        document.getElementById('sp-k').textContent = _kUsed;
+      }
+      row.querySelector('.log-val').textContent = s.valScore ? s.valScore.toFixed(1) : '—';
+      row.querySelector('.log-val').style.color = '';
+
+      if (s.accepted) {
+        row.querySelector('.log-result').innerHTML = '<span class="badge-acc">✓ ACC</span>';
+        row.classList.remove('log-pending');
+        row.classList.add('log-accepted');
+        // Update calibrators
+        if (s.cals) {
+          document.getElementById('sp-calibrators').innerHTML =
+            s.cals.map(function(c) { return '<div class="spec-cal-item">' + c + '</div>'; }).join('');
+        }
+        // Update best val score
+        _bestVal = s.valScore;
+        const valEl = document.getElementById('sp-val');
+        valEl.textContent = _bestVal.toFixed(1) + ' / 100';
+        valEl.classList.add('has-val');
+        valEl.style.animation = 'scoreFlash 0.5s ease both';
+        setTimeout(function() { valEl.style.animation = ''; }, 600);
+      } else if (!s.queriesVal) {
+        row.querySelector('.log-result').innerHTML = '<span class="badge-skp">↓ DEV</span>';
+        row.classList.remove('log-pending');
+        row.classList.add('log-skipped');
+      } else {
+        row.querySelector('.log-result').innerHTML = '<span class="badge-rej">✗ REJ</span>';
+        row.classList.remove('log-pending');
+        row.classList.add('log-rejected');
+      }
+
+      _replayTimer = setTimeout(function() { _runReplayStep(i + 1); }, 900);
+    }, 650);
+  }, 520);
+}
+
+function _showReplayResult() {
+  const resultEl = document.getElementById('search-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML =
+    '<div class="result-line">' +
+    '<span class="result-icon">🏁</span>' +
+    '<strong>Search complete</strong>&ensp;autonomy_budget_reached · 6 proposals · K = ' + _kUsed + ' val queries' +
+    '</div>' +
+    '<div class="result-spec">Best spec: <code>gemini-flash-lite + global_temp(T=1.4) + entropy_temp(slope=2.0) + dirichlet(α=0.15)</code></div>' +
+    '<div class="result-score">Best val score: <strong style="color:var(--green);">' + (_bestVal ? _bestVal.toFixed(1) : '—') + ' / 100</strong>' +
+    '<span style="color:var(--muted);font-size:0.78rem;">&ensp;vs. zero-shot baseline ≈ 34.1</span></div>' +
+    '<div class="result-footer">Next step: score this spec once on the locked <strong>test set</strong>, then generate the final report. The test set is touched exactly once.</div>';
+  document.getElementById('replay-play').textContent = '✓ Done';
+}
+</script>
+</body>
+</html>

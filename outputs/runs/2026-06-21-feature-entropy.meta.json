@@ -1,0 +1,15 @@
+{
+  "run_name": "2026-06-21-feature-entropy",
+  "model": "gemini-3.1-flash-lite",
+  "strategy": "anti_flattening",
+  "n_eval": 990,
+  "n_fit": 715,
+  "feature_model_eval_r2": 0.576,
+  "gains": {
+    "full": 0.0,
+    "meta_only": 0.0,
+    "shape_only": 0.0,
+    "own": 0.0
+  },
+  "elapsed_sec": 6.7
+}

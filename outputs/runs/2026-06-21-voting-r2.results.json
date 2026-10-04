@@ -1,0 +1,54 @@
+{
+  "run": "2026-06-21-voting-r2",
+  "model": "gemini-3.1-flash-lite",
+  "n_votes": 16,
+  "per_dataset": [
+    {
+      "dataset": "Choices13k",
+      "n": 237,
+      "uniform": -0.77,
+      "voting": 12.64,
+      "voting_ci": [
+        3.2,
+        21.4
+      ]
+    },
+    {
+      "dataset": "MoralMachine",
+      "n": 246,
+      "uniform": -2.73,
+      "voting": -157.86,
+      "voting_ci": [
+        -172.8,
+        -143.4
+      ]
+    },
+    {
+      "dataset": "OSPsychMACH",
+      "n": 40,
+      "uniform": -7.2,
+      "voting": -26.13,
+      "voting_ci": [
+        -41.8,
+        -10.2
+      ]
+    }
+  ],
+  "selector": {
+    "fold1": {
+      "Choices13k": true,
+      "MoralMachine": false,
+      "OSPsychMACH": false
+    },
+    "fold2": {
+      "Choices13k": true,
+      "MoralMachine": false,
+      "OSPsychMACH": true
+    },
+    "uniform_mean": -2.19,
+    "selective_mean": 2.25,
+    "delta": 4.44
+  },
+  "parse_failures": 0,
+  "secs": 1159.3
+}

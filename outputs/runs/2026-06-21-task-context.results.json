@@ -1,0 +1,85 @@
+{
+  "run": "2026-06-21-task-context",
+  "model": "gemini-3.1-flash-lite",
+  "cap": 40,
+  "per_dataset": [
+    {
+      "dataset": "OSPsychMACH",
+      "n": 40,
+      "group": "weak",
+      "calibrated_commitment": -54.99,
+      "task_context_brief": -51.04,
+      "task_context_items": -50.04,
+      "task_context_both": -53.28
+    },
+    {
+      "dataset": "Choices13k",
+      "n": 40,
+      "group": "weak",
+      "calibrated_commitment": 22.76,
+      "task_context_brief": 4.24,
+      "task_context_items": 2.09,
+      "task_context_both": 1.74
+    },
+    {
+      "dataset": "MoralMachine",
+      "n": 40,
+      "group": "weak",
+      "calibrated_commitment": -17.62,
+      "task_context_brief": -17.71,
+      "task_context_items": -12.53,
+      "task_context_both": -19.47
+    },
+    {
+      "dataset": "OSPsychBig5",
+      "n": 40,
+      "group": "weak",
+      "calibrated_commitment": 24.21,
+      "task_context_brief": 28.77,
+      "task_context_items": 18.2,
+      "task_context_both": 25.07
+    },
+    {
+      "dataset": "OSPsychRWAS",
+      "n": 10,
+      "group": "weak",
+      "calibrated_commitment": 45.94,
+      "task_context_brief": 40.72,
+      "task_context_items": 43.39,
+      "task_context_both": 26.88
+    },
+    {
+      "dataset": "OpinionQA",
+      "n": 40,
+      "group": "control",
+      "calibrated_commitment": 59.13,
+      "task_context_brief": 59.13,
+      "task_context_items": 72.86,
+      "task_context_both": 72.86
+    },
+    {
+      "dataset": "ESS",
+      "n": 40,
+      "group": "control",
+      "calibrated_commitment": 22.25,
+      "task_context_brief": 22.25,
+      "task_context_items": 36.13,
+      "task_context_both": 36.13
+    }
+  ],
+  "pooled": {
+    "weak": {
+      "calibrated_commitment": -3.33,
+      "task_context_brief": -6.01,
+      "task_context_items": -7.4,
+      "task_context_both": -9.23
+    },
+    "control": {
+      "calibrated_commitment": 40.69,
+      "task_context_brief": 40.69,
+      "task_context_items": 54.49,
+      "task_context_both": 54.49
+    }
+  },
+  "secs": 79.3
+}

@@ -1,0 +1,45 @@
+{
+  "run": "2026-06-20-model-sweep",
+  "subsample_n": 440,
+  "pop": 140,
+  "grouped": 300,
+  "models": [
+    "gemini-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash"
+  ],
+  "systems": [
+    "faithful",
+    "anti_flattening",
+    "contextualized"
+  ],
+  "cost_by_model": {
+    "gemini-flash-lite": {
+      "calls": 0,
+      "cache_hits": 1320,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost_usd": 0.0
+    },
+    "gemini-3.1-flash-lite": {
+      "calls": 1255,
+      "cache_hits": 65,
+      "prompt_tokens": 252556,
+      "completion_tokens": 62059,
+      "total_tokens": 314615,
+      "cost_usd": 0.1562275
+    },
+    "gemini-3.5-flash": {
+      "calls": 1320,
+      "cache_hits": 0,
+      "prompt_tokens": 266728,
+      "completion_tokens": 1210341,
+      "total_tokens": 1477069,
+      "cost_usd": 11.293160999999976
+    }
+  },
+  "total_cost_usd": 11.4494,
+  "elapsed_min": 21.04,
+  "finished_at": "2026-06-20T14:34:40"
+}

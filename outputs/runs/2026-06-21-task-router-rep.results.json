@@ -1,0 +1,57 @@
+{
+  "systems": {
+    "base": {
+      "overall": 28.74,
+      "overall_ci": [
+        24.6,
+        32.8
+      ],
+      "grouped": 65.98,
+      "pop": 28.43
+    },
+    "routed": {
+      "overall": 34.82,
+      "overall_ci": [
+        31.3,
+        38.1
+      ],
+      "grouped": 68.08,
+      "pop": 34.53
+    },
+    "routed_floor": {
+      "overall": 37.49,
+      "overall_ci": [
+        34.3,
+        40.6
+      ],
+      "grouped": 68.08,
+      "pop": 37.23
+    },
+    "oracle": {
+      "overall": 32.22,
+      "overall_ci": [
+        28.2,
+        36.0
+      ],
+      "grouped": 68.08,
+      "pop": 31.91
+    }
+  },
+  "routed_floor_vs_base_delta": 8.75,
+  "routed_floor_vs_base_ci": [
+    5.94,
+    11.67
+  ],
+  "kind_counts": {
+    "opinion_survey": 286,
+    "other": 120,
+    "knowledge": 130,
+    "risky_choice": 40,
+    "personality_scale": 99,
+    "moral_dilemma": 40
+  },
+  "abstained": [
+    "OSPsychMACH"
+  ],
+  "secs": 168.2
+}

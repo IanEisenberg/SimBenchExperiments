@@ -1,0 +1,120 @@
+{
+  "verdict": "CONFIRMED",
+  "scores": {
+    "overall": {
+      "champ": 45.38,
+      "chal": 46.48,
+      "delta": 1.1,
+      "delta_ci": [
+        0.18,
+        1.94
+      ]
+    },
+    "grouped": {
+      "champ": 53.68,
+      "chal": 55.57,
+      "delta": 1.89,
+      "delta_ci": [
+        1.06,
+        2.73
+      ]
+    },
+    "pop": {
+      "champ": 36.9,
+      "chal": 37.2,
+      "delta": 0.3,
+      "delta_ci": [
+        -1.32,
+        1.88
+      ]
+    }
+  },
+  "rules": {
+    "pooled_sig": true,
+    "grouped_no_regress": true,
+    "pop_no_regress": true
+  },
+  "mechanism": {
+    "pred_entropy": {
+      "champ": 0.7622,
+      "chal": 0.7582
+    },
+    "truth_entropy": {
+      "champ": 0.6958,
+      "chal": 0.6958
+    },
+    "concentration_err": {
+      "champ": 0.1265,
+      "chal": 0.123
+    },
+    "location_err": {
+      "champ": 0.0495,
+      "chal": 0.0481
+    },
+    "mode_mass_err": {
+      "champ": -0.0933,
+      "chal": -0.0864
+    },
+    "abs_entropy_gap": {
+      "champ": 0.1273,
+      "chal": 0.1256
+    },
+    "mode_match_rate": {
+      "champ": 0.6682,
+      "chal": 0.6846
+    }
+  },
+  "per_kind": {
+    "opinion_survey": {
+      "n": 2784,
+      "champ": 51.41,
+      "chal": 52.98,
+      "delta": 1.57,
+      "route": "task_context"
+    },
+    "knowledge": {
+      "n": 311,
+      "champ": 33.36,
+      "chal": 38.89,
+      "delta": 5.53,
+      "route": "task_context"
+    },
+    "other": {
+      "n": 264,
+      "champ": 51.13,
+      "chal": 51.13,
+      "delta": 0.0,
+      "route": "base"
+    },
+    "moral_dilemma": {
+      "n": 158,
+      "champ": 1.95,
+      "chal": 1.95,
+      "delta": 0.0,
+      "route": "abstain"
+    },
+    "risky_choice": {
+      "n": 139,
+      "champ": 11.1,
+      "chal": -3.03,
+      "delta": -14.12,
+      "route": "voting"
+    },
+    "personality_scale": {
+      "n": 111,
+      "champ": 18.85,
+      "chal": 18.99,
+      "delta": 0.13,
+      "route": "base"
+    }
+  },
+  "kind_counts": {
+    "opinion_survey": 2784,
+    "knowledge": 311,
+    "other": 264,
+    "risky_choice": 139,
+    "personality_scale": 111,
+    "moral_dilemma": 158
+  },
+  "secs": 1424.0
+}

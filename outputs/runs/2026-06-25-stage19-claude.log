@@ -1,0 +1,32 @@
+[stage19] eval(dev) n=2306 (grouped 481, pop 1825) | abstain-fit(val) n=1480 | test UNTOUCHED
+
+[stage19] === gemini-3.1-flash-lite ===
+[stage19]   abstain-set: ['Choices13k', 'MoralMachine', 'OSPsychMACH']
+[stage19]   faithful -> cc+abstain delta: +7.24 [+5.24, +9.30]  (n=2306)
+[stage19]   usage: Usage(calls=0, cache_hits=6092, prompt_tokens=0, completion_tokens=0, cost_usd=0.0)
+
+[stage19] === claude-sonnet-4.5 ===
+[stage19]   abstain-set: ['Choices13k', 'Jester', 'MoralMachine', 'OSPsychMACH']
+[stage19]   faithful -> cc+abstain delta: +0.93 [-0.73, +2.75]  (n=2306)
+[stage19]   usage: Usage(calls=6091, cache_hits=1, prompt_tokens=1717871, completion_tokens=258399, cost_usd=9.029597999999954)
+
+[stage19] === claude-sonnet-4.6 ===
+[stage19]   abstain-set: ['Jester', 'MoralMachine', 'OSPsychMACH']
+[stage19]   faithful -> cc+abstain delta: +nan [+nan, +nan]  (n=0)
+[stage19]   usage: Usage(calls=2210, cache_hits=1, prompt_tokens=636403, completion_tokens=188928, cost_usd=4.743128999999984)
+
+=== Stage 19 topline (eval = stratified dev subsample) ===
+                model                system  overall  ci_lo  ci_hi  grouped   pop  split_avg    n
+gemini-3.1-flash-lite              faithful    30.74  28.34  33.28    43.92 27.26      35.59 2306
+gemini-3.1-flash-lite calibrated_commitment    35.04  32.91  37.29    50.98 30.84      40.91 2306
+gemini-3.1-flash-lite            cc+abstain    37.97  36.01  39.96    50.98 34.54      42.76 2306
+    claude-sonnet-4.5              faithful    34.68  32.41  36.93    44.60 32.07      38.34 2306
+    claude-sonnet-4.5 calibrated_commitment    33.70  31.40  36.07    47.44 30.08      38.76 2306
+    claude-sonnet-4.5            cc+abstain    35.62  33.59  37.68    47.44 32.50      39.97 2306
+    claude-sonnet-4.6              faithful    38.42  34.19  42.35    41.02 37.77      39.40  731
+    claude-sonnet-4.6 calibrated_commitment      NaN    NaN    NaN      NaN   NaN        NaN    0
+    claude-sonnet-4.6            cc+abstain      NaN    NaN    NaN      NaN   NaN        NaN    0
+
+paper best published single model (Claude-3.7-Sonnet): 40.8
+
+[stage19] 2370s; saved outputs/runs/2026-06-25-stage19-claude.*

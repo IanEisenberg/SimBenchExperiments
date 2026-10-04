@@ -1,0 +1,10 @@
+model,system,pooled,pop,grouped,grouped_ci,frac_below_uniform,cf_alignment
+gemini-flash-lite,faithful,19.272,16.074,20.764,"[14.7, 26.76]",0.27,0.206
+gemini-flash-lite,anti_flattening,26.69,20.054,29.787,"[24.32, 34.97]",0.216,0.214
+gemini-flash-lite,contextualized,23.579,10.54,29.664,"[24.45, 34.79]",0.223,0.282
+gemini-3.1-flash-lite,faithful,33.196,22.652,38.116,"[32.49, 43.32]",0.216,0.391
+gemini-3.1-flash-lite,anti_flattening,36.618,25.607,41.756,"[36.76, 46.32]",0.184,0.437
+gemini-3.1-flash-lite,contextualized,36.244,23.854,42.026,"[36.49, 47.16]",0.193,0.465
+gemini-3.5-flash,faithful,30.2,19.164,35.35,"[29.92, 40.8]",0.225,0.287
+gemini-3.5-flash,anti_flattening,34.375,21.933,40.182,"[35.44, 44.87]",0.177,0.307
+gemini-3.5-flash,contextualized,29.149,14.937,35.782,"[30.62, 40.77]",0.216,0.268
